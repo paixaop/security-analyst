@@ -1,6 +1,6 @@
 # Security Analyst — Architecture Reference
 
-**See `references/constants.md` for the authoritative registry** of all directory paths, output filenames (including reports under `reports/`), template files, agent registry, stages, recon step files, and placeholder variables.
+**See `references/constants.md` for the authoritative registry** of all directory paths, output filenames (including reports under `reports/`), template files, agent registry, stages, recon step files, and placeholder variables. **See `references/platform-tools.md` for environment-specific tool mapping (Cursor, Claude Code, Codex) — required to prevent hangs on Cursor.**
 
 ## Directory Structure
 
@@ -107,7 +107,7 @@ The recon report uses the same LOD architecture as findings:
 
 ### Task-Driven Progress Tracking
 
-All stages use TaskCreate for user-visible progress. Every agent gets a task with naming convention `"Stage N: <description>"`. Agents claim tasks from TaskList, execute per the task description, and mark tasks completed. Users see real-time progress via the task checklist.
+All platforms use agents-only orchestration (no Teams). Agents are spawned via the Task tool with self-contained prompts and return results via the Task return value. On **Claude Code / Codex**, TaskCreate/TaskUpdate provide user-visible progress tracking — the orchestrator creates tasks before spawning and marks them completed after each agent returns. On **Cursor**, task tracking is not available (no TaskCreate/TaskList). See `references/platform-tools.md`.
 
 ## Context Budget Considerations
 

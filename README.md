@@ -98,8 +98,11 @@ security-analyst/
 **Skill doesn't trigger**
 - Use phrases like "run a security audit", "penetration test", "threat model", "SBOM", "compliance mapping"
 
-**MCP or subagent fails**
-- Verify the environment supports `mcp_task` / subagent spawning
+**Analysis hangs / model waits forever**
+- On Cursor: the orchestrator may be calling TaskList/TaskCreate which don't exist. See `references/platform-tools.md` for the correct flow.
+
+**Subagent fails**
+- Verify the environment supports the Task tool for subagent spawning
 - Ensure the project being analyzed is the current workspace
 
 **Findings seem generic**
