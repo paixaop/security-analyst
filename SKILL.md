@@ -209,7 +209,7 @@ Generates an implementation plan from an existing security report. Auto-detects 
 
 ## Architecture
 
-For detailed architecture reference (directory structure, agent design, LOD architecture, customization), see [references/architecture.md](references/architecture.md). For all constants (paths, filenames, agent registry, placeholders), see [references/constants.md](references/constants.md).
+For detailed architecture reference (directory structure, agent design, LOD architecture, customization), see [references/architecture.md](references/architecture.md). For all constants (paths, filenames, agent registry, placeholders), see [references/constants.md](references/constants.md). **For platform-specific tool mapping (Cursor vs Claude Code vs Codex) and hang prevention, see [references/platform-tools.md](references/platform-tools.md).**
 
 **Key concepts:**
 - **LOD system**: Three-tier Level of Detail (LOD-0/1/2) saves 80-96% of prompt tokens for downstream agents while preserving full detail on disk
@@ -228,6 +228,9 @@ cp -r . ~/.claude/skills/security-analyst
 
 # Cursor
 cp -r . ~/.cursor/skills/security-analyst
+
+# OpenAI Codex (if applicable)
+cp -r . $CODEX_HOME/skills/security-analyst
 ```
 
 ## Troubleshooting
@@ -235,8 +238,12 @@ cp -r . ~/.cursor/skills/security-analyst
 **Skill doesn't trigger on security-related requests**
 - Ensure the description includes your trigger phrase. Try: "run a security audit", "penetration test", "threat model", "vulnerability scan", "SBOM", "compliance mapping"
 
+**Analysis hangs / model waits forever**
+- On **Cursor**: the orchestrator may be trying to call TaskList or TaskCreate — these don't exist on Cursor. Read `references/platform-tools.md` for the correct flow.
+- On **Claude Code / Codex**: each Task call should block until the agent returns. If it hangs, check that agent prompts include "Return your LOD-0 + LOD-1 summary in your final message."
+
 **MCP or subagent connection fails during analysis**
-- Verify the environment supports mcp_task/subagent spawning (Claude Code, Cursor with appropriate tools)
+- Verify the environment supports subagent spawning (Claude Code Task tool, Cursor Task tool)
 - Check that the project being analyzed is the current workspace so recon agents can Read/Glob the codebase
 
 **Findings seem generic or lack concrete exploits**
