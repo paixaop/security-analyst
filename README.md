@@ -106,7 +106,7 @@ No credentials, API keys, or authentication tokens are required. All analysis is
 
 ## Output
 
-Full runs write to `docs/security/runs/{YYYY-MM-DD-HHMMSS}/`:
+Full runs write to `docs/security/runs/{YYYY-MM-DD-HHMMSS}/`. To change the output location, edit the `RUN_DIR` path in [references/constants.md](references/constants.md).
 
 | Path | Content |
 |------|---------|
@@ -123,6 +123,20 @@ Full runs write to `docs/security/runs/{YYYY-MM-DD-HHMMSS}/`:
 | `reports/compliance.md` | Compliance mapping (when requested) |
 | `reports/delta.md` | Delta between runs (when requested) |
 | `reports/privacy.md` | Privacy assessment (when requested) |
+
+### Recon (`recon/`)
+
+The reconnaissance phase is the foundation — every downstream agent reads it. 14 parallel agents map the codebase across: project metadata and tech stack, documentation index, HTTP entry points (authenticated and unauthenticated), trust boundaries, crown jewels and attacker profiles, auth mechanisms and session management, external integrations and SSRF surface, secrets and encryption posture, critical data flows (registration, auth, payment, exports), existing security work and prior fixes, configuration and security headers, frontend surface (rendering, client storage, service workers), dependencies with security relevance, and scope notes with limitations. The index aggregates summaries from all 14 areas into a single document, with every entry linked to exact file:line references so downstream agents can jump directly to relevant code.
+
+Recon produces no findings and no exploits — it is purely a map. This makes `/security-analyst:recon` safe to run as a first step.
+
+### Final Report (`reports/final.md`)
+
+The main deliverable for stakeholders. Contains an executive summary (overall posture, critical findings, top 3 actions), a risk dashboard (severity x confidence matrix with exploit chain count), all Critical/High/Medium findings with full exploit scenarios ordered by CVSS, Low/Informational findings in brief table format, exploit chains showing how multiple findings combine into multi-step attacks, root cause analysis grouping findings by underlying cause with systemic fixes, MITRE ATT&CK tactic coverage with gap analysis, a remediation roadmap (quick wins, immediate, short-term, medium-term, backlog), comparison with previously identified security work, positive security observations, methodology notes, and critic validation statistics (confirmed/downgraded/removed/upgraded findings).
+
+### Fix Plan (`reports/fix-plan.md`)
+
+Converts findings into actionable implementation tasks organized by priority: Quick Wins (high ROI + high exploitability), Immediate (critical findings, before next deploy), Short-term (remaining highs, within 1 week), Medium-term (mediums + systematic improvements, within 1 month), and Backlog (lows + defense-in-depth). Each task includes the exact files to modify, concrete fix code (not descriptions), a regression test to prevent reintroduction, effort estimate, and a suggested commit message. A root cause fixes section groups systemic changes that resolve multiple findings at once.
 
 ## Pipeline Overview
 
@@ -172,6 +186,28 @@ security-analyst/
 
 **Findings seem generic**
 - Re-run with a focused scope: `/security-analyst:focused authentication`
+
+## Disclaimer
+
+This skill is provided for **authorized security testing only**. By using this skill you agree to the following:
+
+- You may only run it against projects and environments you own or have explicit written authorization to test.
+- You are solely responsible for ensuring that your use complies with all applicable laws, regulations, and policies.
+- This skill must not be used to attack, exploit, or compromise systems you do not own or have permission to test.
+- The authors are not responsible for any misuse, damage, or legal consequences resulting from the use of this skill.
+- Output artifacts (exploit PoCs, attack chains, vulnerability reports) are sensitive — handle, store, and share them responsibly.
+
+**If you do not have authorization to perform security testing on a target, do not use this skill against it.**
+
+## License
+
+Copyright (c) 2025 Pedro Paixao
+
+This project is licensed under the [GNU Affero General Public License v3.0 (AGPL-3.0)](https://www.gnu.org/licenses/agpl-3.0.html).
+
+You are free to use, modify, and distribute this software under the terms of the AGPL-3.0. If you modify this skill and make it available to others — including over a network — you must release your modifications under the same license and make the source code available.
+
+See [LICENSE](LICENSE) for the full license text.
 
 ## References
 
