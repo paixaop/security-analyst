@@ -1,6 +1,6 @@
 # Security Analyst
 
-Offensive security analysis skill for Claude Code and Cursor. Coordinates specialized agents through a multi-phase penetration testing pipeline. Finds real vulnerabilities with concrete exploits, not checkbox compliance.
+Offensive security analysis skill for Claude Code, Cursor, and Codex. Coordinates specialized agents through a multi-phase penetration testing pipeline using an agents-only orchestration model (no Teams). Finds real vulnerabilities with concrete exploits, not checkbox compliance.
 
 ## When to Use
 
@@ -36,6 +36,9 @@ cp -r . ~/.claude/skills/security-analyst
 
 # Cursor
 cp -r . ~/.cursor/skills/security-analyst
+
+# OpenAI Codex (if applicable)
+cp -r . $CODEX_HOME/skills/security-analyst
 ```
 
 ## Output
@@ -62,7 +65,7 @@ Full runs write to `docs/security/runs/{YYYY-MM-DD-HHMMSS}/`:
 ## Pipeline Overview
 
 ```
-Recon (14 agents, parallel)
+Recon (14 agents, parallel via Task tool)
     ↓
 Surface (≤16 agents) — HTTP, auth, integrations, frontend, LLM, API, deps, config, CI/CD, containers
     ↓
@@ -71,6 +74,8 @@ Logic (4 agents) — race conditions, authz escalation, pipeline exploitation, D
 Tracing (≤4 agents) — data flow + sanitization gaps
     ↓
 Exploits (1) → Validation (1 critic) → Reporting (1) → Remediation (1 fix plan)
+
+All agents spawned via Task tool (blocks until done). No Teams/SendMessage.
 ```
 
 - **LOD system**: Three tiers reduce prompt tokens while keeping full detail on disk
@@ -86,6 +91,7 @@ security-analyst/
 ├── references/
 │   ├── architecture.md    # Architecture reference
 │   ├── constants.md       # Paths, agent registry, templates
+│   ├── platform-tools.md  # Platform-specific tool mapping
 │   ├── commands/          # Entry points
 │   ├── prompts/           # Agent prompt templates
 │   └── plugins/           # Framework-specific checks (16 plugins)
@@ -112,4 +118,5 @@ security-analyst/
 
 - [references/architecture.md](references/architecture.md) — Architecture, LOD system, agent design
 - [references/constants.md](references/constants.md) — Paths, filenames, agent registry
+- [references/platform-tools.md](references/platform-tools.md) — Platform-specific tool mapping (Claude Code, Cursor, Codex)
 - [references/plugins/README.md](references/plugins/README.md) — Plugin format and detection
