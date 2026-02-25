@@ -6,7 +6,7 @@ Single source of truth. Update here, not in individual files.
 
 ```
 PROJECT_ROOT  = (cwd)
-SKILL_ROOT    = directory containing SKILL.md (.claude/commands/security-analyst or .claude/skills/security-analyst)
+SKILL_ROOT    = directory containing SKILL.md (.claude/skills/security-analyst or .cursor/skills/security-analyst)
 PROMPTS_DIR   = {SKILL_ROOT}/references/prompts
 TEMPLATES_DIR = {SKILL_ROOT}/assets/templates
 PLUGINS_DIR   = {SKILL_ROOT}/references/plugins

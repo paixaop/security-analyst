@@ -66,7 +66,7 @@ isProject: false
 
 ## Scope
 
-All edits within `.claude/commands/security-analyst/`. Two major themes:
+All edits within `.claude/skills/security-analyst/`. Two major themes:
 
 1. **Reduce duplication** -- clarify agent boundaries so overlapping agents defer rather than re-analyze
 2. **LOD architecture** -- agents write atomic findings to disk and return one-line summaries, saving 80-96% of context space in orchestrator and downstream agent prompts
