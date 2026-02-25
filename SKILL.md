@@ -1,11 +1,14 @@
 ---
 name: security-analyst
 description: "Use when the user wants a security audit, penetration test, threat model, vulnerability hunt, security fix plan, SBOM, compliance mapping, privacy assessment, or security posture comparison between runs."
+always: false
 ---
 
 # Security Analyst
 
-Offensive security analysis suite that coordinates specialized agents through a multi-group penetration testing pipeline. Finds real vulnerabilities with concrete exploits, not checkbox compliance.
+**Repository:** https://github.com/paixaop/security-analyst
+
+Comprehensive security analysis suite that identifies vulnerabilities, assesses exploitability, and generates actionable remediation plans. Coordinates specialized agents through a multi-phase pipeline — built for developers and security researchers who want depth, not checkbox compliance.
 
 ## When to Use
 
@@ -218,6 +221,16 @@ For detailed architecture reference (directory structure, agent design, LOD arch
 - **Framework plugins**: 16 auto-detected plugins inject framework-specific checks into agent prompts. See [references/plugins/README.md](references/plugins/README.md)
 - **Critic validation**: Adversarial review catches false positives before the final report
 
+## Before You Install
+
+This skill performs comprehensive security analysis. It instructs agents to read large portions of your repository (including environment and secrets files), run dependency auditors, mine git history, and write proof-of-concept reproductions and reports to disk. Before installing or running it:
+
+1. **Only run on codebases you control** — You must have explicit permission to perform security testing on the target project and environment.
+2. **Use an isolated workspace** — Run inside a disposable environment, not a production system or a workspace containing real credentials. If you must analyze a production codebase, clone it into a sandboxed directory first.
+3. **Expect persistent artifacts** — Generated PoCs, exploit chains, and fix code are written to `docs/security/runs/` by default. Choose a safe output directory (configurable in `references/constants.md`), review artifacts promptly, and delete or secure them after triage.
+4. **Verify tooling availability** — The skill requires `git` and benefits from `npm audit`, `pip-audit`, `govulncheck`, and other ecosystem tools. See [Requirements](#requirements) for the full list and fallback behavior.
+5. **Run supervised first** — If you are unsure about scope or safety, do not enable autonomous invocation. Run a manual, supervised test on a throwaway repository before trusting it on a real codebase. The `/security-analyst:recon` command is a good low-risk starting point — it maps the codebase without producing exploits.
+
 ## Installation
 
 Copy or symlink this skill folder to your skills directory:
@@ -233,6 +246,109 @@ cp -r . ~/.cursor/skills/security-analyst
 cp -r . $CODEX_HOME/skills/security-analyst
 ```
 
+## Requirements
+
+### Workspace Access
+
+The skill requires **read access** to the project codebase and **write access** to the project directory. Agents use Read, Grep, and Glob to analyze source files, and full runs write output to `docs/security/runs/{YYYY-MM-DD-HHMMSS}/` inside the project workspace. The project being analyzed must be the current working directory.
+
+### Platform Tools
+
+All agents are spawned as `generalPurpose` subagents via the **Task** tool and require:
+
+| Tool | Purpose |
+|------|---------|
+| **Task** | Spawn and coordinate subagents (Claude Code, Cursor, Codex) |
+| **Bash / Shell** | Run git commands, dependency auditors, and inline scripts |
+| **Read** | Read source files, configs, lockfiles, and prior-stage outputs |
+| **Grep** | Search for patterns across the codebase |
+| **Glob** | Find files by name/extension patterns |
+| **Write** | Write findings, reports, and recon step files to the run directory |
+
+See [references/platform-tools.md](references/platform-tools.md) for platform-specific availability (Cursor vs Claude Code vs Codex).
+
+### Required: `git`
+
+Git is a **hard dependency**. Four agents mine git history (`git log`, `git diff`, `git show`, `git blame`) to find unpatched vulnerability variants. The dependency audit agent uses `git ls-files` to verify lockfile integrity. The variant-hunt command relies entirely on git history analysis. If the project is not a git repository, history-based agents will produce no findings and the variant-hunt command will not function.
+
+### Language-Specific Auditors (used when available)
+
+The dependency audit agent attempts to run vulnerability scanners for detected package ecosystems. These tools are **not required** — if unavailable, the agent falls back to static analysis of manifest and lockfiles, but automated CVE detection will be less thorough.
+
+| Ecosystem | Tool | Invocation | Fallback |
+|-----------|------|------------|----------|
+| Node.js | `npm` | `npm audit --json` | Parse `package.json` + `package-lock.json` directly |
+| Python | `pip-audit` | `pip-audit --json` | Parse `requirements.txt` / `pyproject.toml` directly |
+| Go | `govulncheck` | `govulncheck ./...` | Parse `go.mod` / `go.sum` directly |
+
+The agent also runs inline Node.js scripts (via `node -e`) to extract license data from `node_modules/` when present. No global npm packages are installed — only project-local tooling is used.
+
+### SBOM Export Tools (optional)
+
+The SBOM report template references machine-readable export tools. These are **documentation-only recommendations** — the skill does not attempt to run them automatically. The SBOM report is always generated from the dependency audit agent's static analysis regardless of whether these tools are installed.
+
+| Format | Tool |
+|--------|------|
+| CycloneDX | `npx @cyclonedx/cyclonedx-npm`, `cyclonedx-py`, `cyclonedx-gomod` |
+| SPDX | `spdx-sbom-generator`, `syft` |
+
+### Credentials
+
+No credentials, API keys, or authentication tokens are required. All analysis is performed locally against the project source code and git history. The compliance and privacy commands assess implementation by reading code — they do not connect to external compliance platforms.
+
+## Security & Safety Considerations
+
+This skill performs deep security analysis. By design, it reads broadly, looks for weaknesses, and produces proof-of-concept reproductions. The following sections describe the data and safety surfaces so users can make an informed decision before running it.
+
+### Instruction Scope — Broad Read Access
+
+Agents are instructed to read **all files** in the project workspace, including source code, configuration, environment files, lockfiles, CI/CD pipelines, Dockerfiles, and infrastructure-as-code. This is inherent to security analysis — the skill cannot find vulnerabilities in code it cannot read. Specific high-sensitivity reads include:
+
+- **Secret scanning**: Agents grep for patterns like `API_KEY=`, `SECRET=`, `PASSWORD=`, and read `.env*` files, `credentials*` files, and config files to identify hardcoded secrets. The config-infrastructure agent is explicitly instructed to `redact the actual secret` in findings — only file paths and pattern types are reported, not secret values.
+- **Git history mining**: Four agents run `git log`, `git diff`, and `git show` to find previously-fixed vulnerabilities and check for incomplete remediation. This can surface deleted secrets that persist in git history.
+- **Absolute file paths with line numbers**: Recon agents record exact file locations so downstream agents can `Read` specific code without re-scanning. This is an efficiency optimization, not a privilege escalation — agents already have workspace-wide read access via the platform's Read/Grep/Glob tools.
+
+**The scope is the project workspace only.** Agents do not read files outside the current working directory, do not access the network, and do not read host system files.
+
+### Install Mechanism — Instruction Only
+
+This skill contains no executable code, install scripts, or downloaded binaries. It consists entirely of markdown instruction files (prompts, templates, references) that are read by the orchestrator and injected into agent prompts. The risk surface is in what the instructions ask agents to do at runtime, not in installation.
+
+### Credential Discovery vs. Credential Use
+
+The skill instructs agents to **discover and report on** credentials found in the codebase as part of the security audit. It does **not** use, exfiltrate, or test discovered credentials against external services. Specifically:
+
+| What agents do | What agents do NOT do |
+|----------------|----------------------|
+| Grep for secret patterns in source and config files | Use discovered secrets to authenticate to any service |
+| Read `.env` files to check if they are gitignored | Send secret values to external endpoints |
+| Check git history for accidentally committed secrets | Store raw secret values in findings |
+| Report the file path and pattern type of exposed secrets | Execute discovered credentials |
+| Assess whether secret management (Vault, KMS, etc.) is used | Access cloud metadata endpoints or secret managers |
+
+The config-infrastructure agent prompt (line 115) explicitly mandates: *"Plaintext secret findings are automatically High severity — include the file path (redact the actual secret)."* However, since agents interpret these instructions at runtime, redaction is best-effort. Users handling highly sensitive codebases should review the `findings/` directory after a run and before sharing reports.
+
+### Persistent Artifacts — Exploit PoCs on Disk
+
+Full analysis runs write output to `docs/security/runs/{YYYY-MM-DD-HHMMSS}/` containing:
+
+- **Exploit PoCs**: The finding template requires Medium+ findings to include "concrete exploit code, curl command, or crafted payload" sufficient to reproduce the vulnerability.
+- **Exploit chains**: The exploit developer agent produces multi-step attack chains combining individual findings.
+- **Fix code**: Each finding includes concrete remediation code and regression tests.
+
+These are **text-based descriptions and code snippets in markdown files**, not standalone executable scripts. They are no more executable than a security advisory with sample payloads. Nevertheless, they represent sensitive security knowledge about the analyzed project.
+
+**Recommendations for managing run artifacts:**
+
+1. **Add to `.gitignore`** — Consider adding `docs/security/runs/` to `.gitignore` to prevent accidental commits of security findings to shared repositories.
+2. **Restrict access** — Treat run directories with the same access controls as penetration test reports. Share on a need-to-know basis.
+3. **Clean up after review** — Delete run directories after findings have been triaged, remediated, and verified. The `/security-analyst:diff` command can compare runs before cleanup to confirm resolution.
+4. **Custom output directory** — The output path is defined in `references/constants.md` (`RUN_DIR`). Change it to write outside the project tree if preferred (e.g., to a directory not tracked by version control).
+
+### Activation
+
+The skill sets `always: false` in its frontmatter. It only activates when the user explicitly requests a security audit, penetration test, threat model, vulnerability scan, SBOM, compliance mapping, or privacy assessment. It does not run automatically on every conversation.
+
 ## Troubleshooting
 
 **Skill doesn't trigger on security-related requests**
@@ -247,4 +363,4 @@ cp -r . $CODEX_HOME/skills/security-analyst
 - Check that the project being analyzed is the current workspace so recon agents can Read/Glob the codebase
 
 **Findings seem generic or lack concrete exploits**
-- The skill expects "offensive framing" — findings should include attack steps and PoC. If outputs are shallow, re-run with a focused scope (e.g., `/security-analyst:focused authentication`) for deeper analysis
+- The skill expects findings to include attack steps and PoC. If outputs are shallow, re-run with a focused scope (e.g., `/security-analyst:focused authentication`) for deeper analysis
