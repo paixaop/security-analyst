@@ -364,3 +364,19 @@ The skill sets `always: false` in its frontmatter. It only activates when the us
 
 **Findings seem generic or lack concrete exploits**
 - The skill expects findings to include attack steps and PoC. If outputs are shallow, re-run with a focused scope (e.g., `/security-analyst:focused authentication`) for deeper analysis
+
+## Disclaimer
+
+This skill is provided for **authorized security testing only**. By using this skill you agree to the following:
+
+- You may only run it against projects and environments you own or have explicit written authorization to test.
+- You are solely responsible for ensuring that your use complies with all applicable laws, regulations, and policies.
+- This skill must not be used to attack, exploit, or compromise systems you do not own or have permission to test.
+- The authors are not responsible for any misuse, damage, or legal consequences resulting from the use of this skill.
+- Output artifacts (exploit PoCs, attack chains, vulnerability reports) are sensitive — handle, store, and share them responsibly.
+
+**If you do not have authorization to perform security testing on a target, do not use this skill against it.**
+
+## License
+
+Copyright (c) 2025 Pedro Paixao. Licensed under [AGPL-3.0](https://www.gnu.org/licenses/agpl-3.0.html). See [LICENSE](LICENSE) for details.
