@@ -19,13 +19,13 @@ Check if the user provided a run directory path as an argument.
 
 **If no path was provided:** Auto-detect the latest run:
 1. List directories under `docs/security/runs/` sorted by name descending (newest first)
-2. Pick the first one that contains `reports/final.md`
+2. Pick the first one that contains `reports/executive-report.md`
 3. If none found, check for legacy path `docs/security/security-analysis-*.md` and use `docs/security/` as `RUN_DIR`
 4. If still none found, tell the user: "No security analysis report found. Run `/security-analyst:full` first."
 
 Set:
 - `RUN_DIR` → the identified run directory
-- `REPORT_PATH` → `{REPORTS_DIR}/final.md` (or legacy path)
+- `REPORT_PATH` → `{REPORTS_DIR}/executive-report.md` (or legacy path)
 
 Confirm with the user: "Found security analysis report at `{REPORT_PATH}`. Generate fix plan?"
 

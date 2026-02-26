@@ -5,7 +5,7 @@
 For each finding you discover:
 
 1. **Write the atomic finding file** to `{FINDINGS_DIR}/{FINDING-ID}.md` using the LOD-2 format from `{FINDING_TEMPLATE_PATH}`
-2. **Build your LOD-0 summary table** — one row per finding: `| [ID] | [Severity] | [One-sentence summary] |`
+2. **Build your LOD-0 summary table** — one row per finding. The ID column MUST be a markdown link to the atomic finding file: `| [{ID}](findings/{FINDING-ID}.md) | [Severity] | [One-sentence summary] |`
 
 When you are done with all analysis, return ONLY the following to the orchestrator:
 
@@ -19,8 +19,8 @@ When you are done with all analysis, return ONLY the following to the orchestrat
 
 | ID          | Severity | Summary        |
 | ----------- | -------- | -------------- |
-| HTTP-001 | High     | [one sentence] |
-| HTTP-002 | Medium   | [one sentence] |
+| [HTTP-001](findings/HTTP-001.md) | High     | [one sentence] |
+| [HTTP-002](findings/HTTP-002.md) | Medium   | [one sentence] |
 
 ### IDOR-Suspect Endpoints (if applicable)
 
@@ -57,7 +57,7 @@ If you are working through a large list of targets and risk exhausting your cont
 
 | ID          | Severity | Summary        |
 | ----------- | -------- | -------------- |
-| ...         | ...      | ...            |
+| [{ID}](findings/{ID}.md) | ...      | ...            |
 
 ### Incidental Findings
 
@@ -144,6 +144,24 @@ When reading source files referenced in recon step files, use **targeted line ra
 4. **Exception:** files under ~100 lines — read the whole file
 
 This prevents large source files (1000+ lines) from consuming excessive context. A 2000-line file read in full uses ~20x more context than the ~100-line function body you actually need.
+
+## Trust Model Awareness
+
+If `{RECON_DIR}/step-04-boundaries.md` contains a "Documented Trust Model" section (extracted from the project's SECURITY.md or security policy), use it to calibrate your analysis:
+
+1. **Check trust levels before reporting.** If the documented model explicitly declares a component as trusted (e.g., "internal services are trusted"), a finding that assumes that component is hostile requires stronger evidence. Annotate such findings with `[TRUST-MODEL: contradicts documented trust level — {reason it still applies}]` or downgrade/omit if the trust assumption is reasonable.
+2. **Respect accepted risks.** If the documented model lists an accepted risk that matches your finding, annotate the finding with `[ACCEPTED-RISK: documented in {source document}]` and set severity to Info unless you can demonstrate the acceptance is invalid (e.g., the risk has changed since acceptance).
+3. **Flag mismatches.** If you discover a code path that violates a documented security invariant, this is *higher* severity than a generic finding — the project explicitly depends on that invariant holding. Annotate with `[INVARIANT-VIOLATION]`.
+
+This reduces false positives from findings that the project maintainers have already assessed while surfacing violations of the project's own security contract.
+
+## External Audit Cross-Reference
+
+If `{RECON_DIR}/step-04-boundaries.md` contains an "External Audit Findings" section (from openclaw or other tools), or `{RECON_DIR}/step-10-security-work.md` contains "External Audit Tool Results":
+
+1. **Avoid re-reporting confirmed findings.** If an external tool has already confirmed a finding with the same root cause and affected file, reference the external finding ID instead of creating a duplicate. Use: `[CORROBORATES: {tool} {finding-id}]` in your finding.
+2. **Deepen external findings.** If your analysis reveals additional attack surface, exploit chains, or severity factors beyond what the external tool reported, create a new finding that references the external one and explains the additional impact.
+3. **Identify gaps.** If external audit results exist but miss patterns you find, note this — it helps calibrate the external tool's coverage.
 
 ## Reading Recon Data
 

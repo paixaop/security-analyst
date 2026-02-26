@@ -28,6 +28,7 @@ Comprehensive security analysis suite that identifies vulnerabilities, assesses 
 - To map findings against SOC 2, ISO 27001, PCI DSS, HIPAA, or GDPR controls
 - To compare security posture between two analysis runs (delta/regression tracking)
 - To conduct a privacy and data protection assessment (PII flows, consent, data subject rights)
+- To create or contribute a framework-specific security plugin
 
 ## Available Commands
 
@@ -44,6 +45,9 @@ Comprehensive security analysis suite that identifies vulnerabilities, assesses 
 | `/security-analyst:diff [run-a] [run-b]` | Compare two runs — new, resolved, persistent findings | 1 | Delta report |
 | `/security-analyst:compliance [framework]` | Map findings to SOC 2 / ISO 27001 / PCI DSS / HIPAA / GDPR | 1 | Compliance report |
 | `/security-analyst:privacy` | Privacy assessment — PII flows, consent, data subject rights | 15+ | Privacy report |
+| `/security-analyst:create-plugin [framework]` | Generate a framework-specific security plugin | 0 | Plugin file |
+| `/security-analyst:create-plugin [framework] [file]` | Generate a plugin using a reference file | 0 | Plugin file |
+| `/security-analyst:contribute-plugin [plugin-name]` | Open a PR to contribute a plugin to the project | 0 | GitHub PR |
 
 ## How It Works
 
@@ -112,8 +116,9 @@ Full runs write to `docs/security/runs/{YYYY-MM-DD-HHMMSS}/`:
 | `reports/tracing.md` | Data flow tracing |
 | `reports/exploits.md` | Exploit catalog with PoCs |
 | `reports/validation.md` | Validated findings |
-| `reports/final.md` | Complete security report |
+| `reports/executive-report.md` | Executive security report |
 | `reports/fix-plan.md` | Implementation plan |
+| `reports/project-recon.md` | Full LOD-2 consolidated recon report |
 | `reports/compliance.md` | Compliance mapping (when requested) |
 | `reports/delta.md` | Delta between two runs (when requested) |
 | `reports/privacy.md` | Privacy & data protection assessment (when requested) |
@@ -222,6 +227,31 @@ Generates an implementation plan from an existing security report. Auto-detects 
 /security-analyst:fix-plan docs/security/runs/2025-06-15-143022
 ```
 
+### Create Plugin
+
+Creates a new framework-specific security plugin. Validates against existing plugins for overlap, checks base agent prompts for duplicate coverage, researches framework security characteristics, and generates the plugin file with detection criteria and agent-specific security checks.
+
+Accepts an optional reference file (documentation, security guide, OWASP cheat sheet) as input to inform the plugin content.
+
+```
+/security-analyst:create-plugin Flask
+/security-analyst:create-plugin "Ruby on Rails"
+/security-analyst:create-plugin Svelte
+/security-analyst:create-plugin "AWS Lambda" docs/aws-lambda-security.md
+/security-analyst:create-plugin Rust path/to/rust-security-guide.pdf
+/security-analyst:create-plugin Supabase
+```
+
+### Contribute Plugin
+
+Opens a pull request to contribute a plugin to the security-analyst project repository. Validates the plugin file, creates a feature branch, and opens a PR with a structured description. Requires the `gh` CLI.
+
+```
+/security-analyst:contribute-plugin flask
+/security-analyst:contribute-plugin aws-lambda
+/security-analyst:contribute-plugin supabase
+```
+
 ## Examples
 
 **Example 1: Full security audit before production deploy**
@@ -234,7 +264,7 @@ Actions:
 3. Runs business logic, data flow tracing, exploit development, and critic validation
 4. Assembles final report with remediation roadmap
 
-Result: Complete security report in `docs/security/runs/{timestamp}/reports/final.md` with CVSS-scored findings, PoCs, and a prioritized fix plan.
+Result: Complete security report in `docs/security/runs/{timestamp}/reports/executive-report.md` with CVSS-scored findings, PoCs, and a prioritized fix plan.
 
 **Example 2: Targeted analysis of a single component**
 
@@ -278,7 +308,7 @@ For detailed architecture reference (directory structure, agent design, LOD arch
 - **Large codebase handling**: Automatic work partitioning, PARTIAL return protocol, targeted line-range reads, stage-based dispatching (each stage gets a fresh context window), and checkpoint/resume for interrupted runs. See [references/architecture.md](references/architecture.md)
 - **Group discipline**: Later groups depend on earlier findings; never start a group early
 - **Dynamic scoping**: Recon determines which agents to skip
-- **Framework plugins**: 16 auto-detected plugins inject framework-specific checks into agent prompts. See [references/plugins/README.md](references/plugins/README.md)
+- **Framework plugins**: 17 auto-detected plugins inject framework-specific checks into agent prompts. Create new ones with `/security-analyst:create-plugin`. See [references/plugins/README.md](references/plugins/README.md)
 - **Critic validation**: Adversarial review catches false positives before the final report
 
 ## Before You Install
@@ -293,17 +323,26 @@ This skill performs comprehensive security analysis. It instructs agents to read
 
 ## Installation
 
-Copy or symlink this skill folder to your skills directory:
+### Plugin install (recommended)
+
+```
+/plugin marketplace add paixaop/security-analyst
+/plugin install security-analyst
+```
+
+This works in both Claude Code and Cursor.
+
+### Manual install
 
 ```bash
-# Claude Code
-cp -r . ~/.claude/skills/security-analyst
+# Clone and run the install script
+git clone https://github.com/paixaop/security-analyst.git
+cd security-analyst
+./install.sh
 
-# Cursor
-cp -r . ~/.cursor/skills/security-analyst
-
-# OpenAI Codex (if applicable)
-cp -r . $CODEX_HOME/skills/security-analyst
+# Or copy directly
+cp -r plugin/skills/security-analyst ~/.claude/skills/security-analyst   # Claude Code
+cp -r plugin/skills/security-analyst ~/.cursor/skills/security-analyst   # Cursor
 ```
 
 ## Requirements
@@ -445,4 +484,4 @@ This skill is provided for **authorized security testing only**. By using this s
 
 ## License
 
-Copyright (c) 2025 Pedro Paixao. Licensed under [AGPL-3.0](https://www.gnu.org/licenses/agpl-3.0.html). See [LICENSE](LICENSE) for details.
+Copyright (c) 2025 Pedro Paixao. Licensed under [AGPL-3.0](https://www.gnu.org/licenses/agpl-3.0.html).

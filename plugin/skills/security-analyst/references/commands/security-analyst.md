@@ -155,7 +155,7 @@ FINDINGS_INDEX     = {FINDINGS_DIR}/index.md
 RECON_DIR          = {RUN_DIR}/recon
 REPORTS_DIR        = {RUN_DIR}/reports
 RECON_INDEX        = {RECON_DIR}/index.md
-FINAL_REPORT       = {REPORTS_DIR}/final.md
+FINAL_REPORT       = {REPORTS_DIR}/executive-report.md
 CHECKPOINT         = {RUN_DIR}/checkpoint.md
 FINDING_TEMPLATE   = {TEMPLATES_DIR}/finding.md
 GROUP_REPORT_TEMPLATE = {TEMPLATES_DIR}/group-report.md
@@ -282,6 +282,11 @@ Read `{RECON_DIR}/index.md` and selectively read relevant step files to determin
 - Does the project use WebSockets/SSE? (skip `websocket-security` if no WebSocket/SSE endpoints found)
 - Does the project have file uploads? (skip `file-upload-security` if no upload endpoints found)
 
+**Trust model and external audit integration:**
+- Read `{RECON_DIR}/step-04-boundaries.md` and check for a "Documented Trust Model" section. If present, extract the trust levels, accepted risks, and security invariants. These are propagated to all downstream stages via `agent-common.md` instructions — agents will use them to filter findings and annotate trust model alignment.
+- Check `{RECON_DIR}/step-04-boundaries.md` for an "External Audit Findings" section and `{RECON_DIR}/step-10-security-work.md` for "External Audit Tool Results". If openclaw or other external audit results exist, note the confirmed finding count and severity breakdown. Log: "External audit: {tool} — {N} confirmed findings ({severity breakdown})". Agents will cross-reference these via `agent-common.md` instructions to avoid duplicating confirmed issues.
+- If a documented trust model exists, log: "Trust model: loaded from {source document} — {N} trust levels, {N} accepted risks, {N} invariants". This context flows to all agents through the recon step files they read.
+
 **Claude Code / Codex:** Create tasks with TaskCreate for tracking progress. **Cursor:** Skip task creation (no TaskCreate).
 
 ### Step 3.2: Target Counting & Work Partitioning
@@ -340,6 +345,8 @@ Write the analysis configuration to `{CHECKPOINT}` so stage orchestrators (and a
 - Record matched plugins and their per-agent sections
 - Record partition data (agent → chunks map)
 - Record critical data flows (for tracing stage)
+- Record trust model status: `trust_model: {present|absent}`, source document path, count of trust levels/accepted risks/invariants
+- Record external audit status: `external_audit: {present|absent}`, tool name, confirmed finding count and severity breakdown
 
 This is the **last step that runs in the top-level orchestrator's context before dispatching stages**. All subsequent stages are dispatched as stage-orchestrator Tasks.
 
@@ -650,6 +657,76 @@ Spawn the fix-planner agent to create an implementation plan from the final repo
 5. Verify expected output: confirm `{REPORTS_DIR}/fix-plan.md` was written
 6. **Claude Code / Codex:** Mark task completed via TaskUpdate
 
+### Step 8.7: PROJECT-RECON STAGE — Full LOD-2 Consolidated Recon Report
+
+> **No agent needed — orchestrator assembles directly.** This produces a single self-contained document that merges all 14 recon step files at full LOD-2 detail into `{REPORTS_DIR}/project-recon.md`. After writing, update `{CHECKPOINT}` (project-recon → `completed`).
+
+This is the last artifact generated. It gives readers a single file containing the complete codebase security map without needing to navigate the atomic step files.
+
+**Assembly:**
+
+1. Read all 14 step files from `{RECON_DIR}/`:
+   - `step-01-metadata.md` through `step-14-scope.md`
+2. Write `{REPORTS_DIR}/project-recon.md` with this structure:
+
+```
+# Project Recon — Full Security Map
+
+**Date:** {TIMESTAMP}
+**Project:** [from step-01 metadata]
+**Run:** {RUN_DIR}
+
+---
+
+[For each step file (01 through 14), include the ENTIRE LOD-2 content under its own heading:]
+
+## 1. Project Metadata
+[full content of step-01-metadata.md]
+
+## 2. Documentation Index
+[full content of step-02-docs.md]
+
+## 3. HTTP Entry Points
+[full content of step-03-http.md]
+
+## 4. Trust Boundaries
+[full content of step-04-boundaries.md]
+
+## 5. Crown Jewels
+[full content of step-05-crown-jewels.md]
+
+## 6. Authentication & Authorization
+[full content of step-06-auth.md]
+
+## 7. External Integrations
+[full content of step-07-integrations.md]
+
+## 8. Encryption & Secrets
+[full content of step-08-secrets.md]
+
+## 9. Data Flows
+[full content of step-09-data-flows.md]
+
+## 10. Existing Security Work
+[full content of step-10-security-work.md]
+
+## 11. Configuration
+[full content of step-11-config.md]
+
+## 12. Frontend
+[full content of step-12-frontend.md]
+
+## 13. Dependencies
+[full content of step-13-dependencies.md]
+
+## 14. Scope Notes
+[full content of step-14-scope.md]
+```
+
+3. Every table row in the consolidated report preserves absolute `file:line` references from the step files
+4. No summarization — this is full LOD-2 content, not LOD-0 or LOD-1
+5. Update `{CHECKPOINT}`: project-recon → `completed`
+
 ### Step 9: Cleanup & Termination
 
 1. Present summary to user:
@@ -665,8 +742,9 @@ Spawn the fix-planner agent to create an implementation plan from the final repo
      - `{REPORTS_DIR}/tracing.md`
      - `{REPORTS_DIR}/exploits.md`
      - `{REPORTS_DIR}/validation.md`
-     - `{REPORTS_DIR}/final.md`
+     - `{REPORTS_DIR}/executive-report.md`
      - `{REPORTS_DIR}/fix-plan.md`
+     - `{REPORTS_DIR}/project-recon.md` (full LOD-2 consolidated recon)
    - **Plugins loaded:** list of matched plugins (or "None")
    - Total findings by severity
    - Top 3 most critical findings
@@ -684,9 +762,9 @@ After each stage:
 4. Collect LOD-0 summary tables from all agents in the stage (including continuation agents)
 5. Deduplicate: if two agents wrote findings for the same vulnerability, keep the more detailed LOD-2 file and delete the other. Update LOD-0 tables accordingly
 6. Build/update `{FINDINGS_INDEX}`:
-   - **LOD-0 section**: Concatenated LOD-0 tables from all stages so far
-   - **LOD-1 section**: For each finding, read its LOD-2 file and extract the LOD-1 brief (first 5 lines: ID, title, severity, CVSS, CWE, ATT&CK, file:line, one-paragraph)
-7. Enrich: add cross-references between related findings in the index
+   - **LOD-0 section**: Concatenated LOD-0 tables from all stages so far. Each finding ID MUST be a markdown link to its atomic file: `[{ID}](findings/{FINDING-ID}.md)` — e.g., `[HTTP-001](findings/HTTP-001.md)`
+   - **LOD-1 section**: For each finding, read its LOD-2 file and extract the LOD-1 brief (ID as markdown link, title, severity, CVSS, CWE, ATT&CK, file:line, one-paragraph). Link format: `### [{ID}](findings/{FINDING-ID}.md): {Title}`
+7. Enrich: add cross-references between related findings in the index (use markdown links for cross-referenced IDs)
 8. Prepare `{PRIOR_FINDINGS_SUMMARY}` for next stage: the LOD-0 table only, plus `{FINDINGS_DIR}` path for selective reading
 9. Collect incidental findings (IX-prefixed) from agent return messages
 10. Write the stage report using `{GROUP_REPORT_TEMPLATE}`

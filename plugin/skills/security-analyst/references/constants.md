@@ -31,7 +31,8 @@ All reports write to `{REPORTS_DIR}/`:
 | `exploits.md` | Orchestrator — exploit catalog with PoCs |
 | `validation.md` | Orchestrator — critic-reviewed findings |
 | `sbom.md` | Orchestrator — software bill of materials |
-| `final.md` | Report writer agent |
+| `executive-report.md` | Report writer agent |
+| `project-recon.md` | Orchestrator — full LOD-2 consolidated recon |
 | `fix-plan.md` | Fix planner agent |
 | `compliance.md` | Orchestrator (when requested) |
 | `delta.md` | Orchestrator (when requested) |
@@ -50,7 +51,7 @@ In `{TEMPLATES_DIR}/`:
 | `agent-common.md` | Appended to all agent prompts |
 | `group-report.md` | Orchestrator (per-stage reports) |
 | `recon-report.md` | Recon agents |
-| `final-report.md` | Report writer agent |
+| `executive-report.md` | Report writer agent |
 | `fix-plan.md` | Fix planner agent |
 | `sbom-report.md` | Orchestrator |
 | `compliance-report.md` | Orchestrator |
@@ -129,7 +130,7 @@ Agents below threshold run as a single instance (no chunking). Finding ID offset
 ## Stages
 
 ```
-recon → surface → logic → tracing → exploits → validation → reporting → remediation
+recon → surface → logic → tracing → exploits → validation → reporting → remediation → project-recon
                 ↘ sbom (parallel with logic)
 ```
 
@@ -142,7 +143,8 @@ recon → surface → logic → tracing → exploits → validation → reportin
 | tracing | surface+logic | ≤4 | `reports/tracing.md` |
 | exploits | all prior | 1 | `reports/exploits.md` |
 | validation | exploits | 1 | `reports/validation.md` |
-| reporting | all prior | 1 | `reports/final.md` |
+| reporting | all prior | 1 | `reports/executive-report.md` |
 | remediation | reporting | 1 | `reports/fix-plan.md` |
+| project-recon | remediation | 0 | `reports/project-recon.md` |
 
 Team name: `security-analysis`

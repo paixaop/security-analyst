@@ -1,0 +1,18 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "security-analyst",
+  "description": "Comprehensive security analysis suite for Claude Code and Cursor",
+  "owner": {
+    "name": "Pedro Paixao"
+  },
+  "plugins": [
+    {
+      "name": "security-analyst",
+      "description": "Multi-phase security analysis with exploit PoCs and remediation plans",
+      "version": "1.0.0",
+      "source": "./plugin",
+      "category": "security",
+      "homepage": "https://github.com/paixaop/security-analyst"
+    }
+  ]
+}

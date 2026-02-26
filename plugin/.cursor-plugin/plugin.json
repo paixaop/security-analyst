@@ -1,0 +1,14 @@
+{
+  "name": "security-analyst",
+  "displayName": "Security Analyst",
+  "description": "Comprehensive security analysis suite that identifies vulnerabilities across HTTP, auth, integrations, dependencies, infrastructure, and business logic through a multi-phase agent pipeline with exploit PoCs and remediation plans.",
+  "version": "1.0.0",
+  "author": {
+    "name": "Pedro Paixao"
+  },
+  "homepage": "https://github.com/paixaop/security-analyst",
+  "repository": "https://github.com/paixaop/security-analyst",
+  "license": "AGPL-3.0",
+  "keywords": ["security-audit", "penetration-testing", "threat-model", "vulnerability-scanning", "sbom", "compliance"],
+  "skills": "./skills/"
+}

@@ -16,7 +16,7 @@ You are writing for two audiences: (1) technical engineers who will fix the issu
 
 ## Your Output
 
-Write the final report to: `{OUTPUT_PATH}` (typically `{REPORTS_DIR}/final.md`)
+Write the executive report to: `{OUTPUT_PATH}` (typically `{REPORTS_DIR}/executive-report.md`)
 
 **Note:** This agent writes a consolidated final report, NOT atomic findings to `{FINDINGS_DIR}/`. You consume LOD-1/LOD-2 findings as input and produce a standalone report as output.
 

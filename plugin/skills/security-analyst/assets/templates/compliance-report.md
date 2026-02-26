@@ -153,7 +153,7 @@ The orchestrator produces this report by mapping existing security findings to a
 
     | Source | Path | Used For |
     |--------|------|---------|
-    | Security Analysis Report | {FINAL_REPORT} | Finding-to-control mapping |
+    | Executive Report | {FINAL_REPORT} | Finding-to-control mapping |
     | Fix Plan | {REPORTS_DIR}/fix-plan.md | Remediation effort estimates |
     | Recon Index | {RECON_DIR}/index.md | Current implementation state |
     | SBOM | {REPORTS_DIR}/sbom.md | Dependency and license inventory |

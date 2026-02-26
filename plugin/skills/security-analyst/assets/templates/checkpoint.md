@@ -17,8 +17,9 @@
 | tracing | {TRACING_STATUS} | {TRACING_FINDINGS} | reports/tracing.md |
 | exploits | {EXPLOITS_STATUS} | {EXPLOITS_FINDINGS} | reports/exploits.md |
 | validation | {VALIDATION_STATUS} | {VALIDATION_FINDINGS} | reports/validation.md |
-| reporting | {REPORTING_STATUS} | — | reports/final.md |
+| reporting | {REPORTING_STATUS} | — | reports/executive-report.md |
 | remediation | {REMEDIATION_STATUS} | — | reports/fix-plan.md |
+| project-recon | {PROJECT_RECON_STATUS} | — | reports/project-recon.md |
 
 ## Configuration
 
