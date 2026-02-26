@@ -17,20 +17,20 @@ Think like a penetration tester doing initial reconnaissance. You're mapping the
 ## Your Output
 
 1. **LOD-2 file**: Write the full section to `{RECON_DIR}/step-{NN}-{name}.md` using the format from the recon report template
-2. **LOD-0 + LOD-1 summary**: Return in your final response:
+2. **LOD-0 + LOD-1 summary**: Return in your final response. Use markdown links for all file references:
 
 ```
 ## Recon Step {N}: {Section Name}
 
 ### LOD-0
-| {N} | {Section Name} | {key facts — one line} |
+| [{N}](recon/step-{NN}-{name}.md) | {Section Name} | {key facts — one line} |
 
 ### LOD-1
 ### Step {N}: {Section Name}
 **{Key metric}:** {value}
 **Key files:** {2-4 most important file paths}
 **Notable:** {1-2 sentences on security-relevant observations}
-**Details:** recon/step-{NN}-{name}.md
+**Details:** [recon/step-{NN}-{name}.md](recon/step-{NN}-{name}.md)
 ```
 
 ## Quality Standards
@@ -87,10 +87,18 @@ The orchestrator creates tasks with these step descriptions. This section docume
 
 ### Step 4: Trust Boundaries
 
+- **Documented trust model:** Glob for SECURITY.md, SECURITY*, **/security-policy*, **/threat-model*. If found, read them and extract:
+  - Declared trust boundaries and trust levels (e.g., "internal services are trusted", "webhooks are untrusted")
+  - Accepted risks and documented risk acceptances
+  - Threat assumptions (attacker model, in-scope/out-of-scope threats)
+  - Security invariants the project explicitly relies on
+  - Output these in a "Documented Trust Model" section BEFORE the code-inferred boundaries
+- **External audit results:** Glob for openclaw*, .openclaw*, **/openclaw-report*, **/openclaw-results*. If found, read and extract confirmed findings (IDs, severities, affected files). Output in an "External Audit Findings" section.
 - Map External->System: webhook endpoints, OAuth callbacks, API receivers
 - Map User->System: authenticated API calls, client-side database writes
 - Map System->External: outbound HTTP calls (Grep for fetch, axios, got, request, http.get, API client usage)
 - Map Client->Database: Grep for database rules files (firestore.rules, .rules.json), client SDK usage
+- **Reconcile:** Where the documented trust model specifies a boundary or trust level, annotate the corresponding code-inferred boundary with `[DOCUMENTED]`. Flag any code-inferred boundaries that contradict the documented model as `[MISMATCH]`.
 
 ### Step 5: Crown Jewels
 
@@ -142,8 +150,10 @@ For each critical capability (e.g., "process incoming data", "handle user authen
 - Run: `git log --all --oneline --grep="security" --grep="fix" --grep="vuln" --grep="inject" --grep="sanitiz" --grep="escap" --grep="auth" --grep="SSRF" --grep="XSS"`
 - Glob for security utility files: **/safe-*, **/sanitiz*, **/validat*, **/security*
 - Glob for SAST results: **/*.sarif, **/semgrep*, **/snyk*, **/codeql*
+- Glob for external audit tools: openclaw*, .openclaw*, **/openclaw-report*, **/openclaw-results*, **/openclaw-config*
 - Glob for security docs: **/security*.md, **/threat-model*, **/pentest*
 - Check for lint/security rules in config: .eslintrc*, .semgrep*, .snyk
+- **OpenClaw integration:** If openclaw results are found, read them and produce a structured summary: finding count, severity breakdown, confirmed vs. unconfirmed, affected file paths. This feeds into downstream agents to avoid re-discovering confirmed issues.
 
 ### Step 11: Configuration
 

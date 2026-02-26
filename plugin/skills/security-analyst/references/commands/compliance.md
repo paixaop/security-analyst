@@ -16,11 +16,11 @@ Map findings from an existing security analysis run to a compliance framework.
 **Execution:**
 
 1. If no `[run-dir]` is specified, auto-detect the latest run in `docs/security/runs/`
-2. Validate the run directory contains `reports/final.md` and `findings/index.md`
+2. Validate the run directory contains `reports/executive-report.md` and `findings/index.md`
 3. Read the compliance report template: `{TEMPLATES_DIR}/compliance-report.md`
 4. Read the run's findings (LOD-1 from index, selectively LOD-2 for detail):
    - `{RUN_DIR}/findings/index.md`
-   - `{REPORTS_DIR}/final.md`
+   - `{REPORTS_DIR}/executive-report.md`
    - `{REPORTS_DIR}/fix-plan.md` (for remediation effort estimates)
    - `{REPORTS_DIR}/sbom.md` (for dependency and license data)
 5. Read the recon data for implementation state:

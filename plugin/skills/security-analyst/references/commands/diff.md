@@ -17,7 +17,7 @@ If no arguments are provided, auto-detect the two most recent runs in `docs/secu
 
 **Execution:**
 
-1. Validate both run directories exist and contain `reports/final.md` and `findings/index.md`
+1. Validate both run directories exist and contain `reports/executive-report.md` and `findings/index.md`
 2. Read the SBOM template: `{TEMPLATES_DIR}/delta-report.md`
 3. Read both runs' findings indexes (`findings/index.md`) and match findings between runs using:
    - Finding ID exact match

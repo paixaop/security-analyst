@@ -41,7 +41,7 @@ security-analyst/
         ├── finding.md                   # Individual finding format
         ├── agent-common.md              # Shared LOD output + incidental findings
         ├── group-report.md              # Per-stage report
-        ├── final-report.md              # Final report structure
+        ├── executive-report.md           # Executive report structure
         ├── fix-plan.md                  # Fix plan structure
         ├── sbom-report.md               # Software Bill of Materials
         ├── compliance-report.md         # Compliance framework mapping
@@ -70,6 +70,8 @@ All agents are `generalPurpose` subagents (need Bash, Read, Grep, Glob for code 
 - **Framework plugins**: After recon, framework-specific plugins are auto-detected and injected into relevant agent prompts. 16 plugins available
 - **Dynamic scoping**: Recon determines which agents to skip (no frontend agent for backend-only projects, no LLM agent for projects without AI)
 - **Stage discipline**: Later stages depend on earlier findings; never start a stage early
+- **Trust model integration**: Recon Step 4 extracts the project's documented trust model (from SECURITY.md) and feeds it to all downstream agents, reducing false positives from findings that contradict documented trust assumptions
+- **External audit integration**: Recon detects openclaw and other external audit tool results; downstream agents cross-reference to avoid duplicating confirmed findings
 - **Critic validation**: Adversarial review catches false positives before the final report
 
 ## Level of Detail (LOD) Architecture
@@ -78,8 +80,8 @@ Agent reports use a three-tier Level of Detail system to minimize context consum
 
 | Level | Content | ~Tokens | Where it lives |
 |---|---|---|---|
-| LOD-0 | `ID \| Severity \| One sentence` | 30/finding | Agent return message, orchestrator context, `{PRIOR_FINDINGS_SUMMARY}` |
-| LOD-1 | ID + title + severity + CVSS + CWE + file:line + paragraph | 100/finding | `{FINDINGS_DIR}/index.md`, terminal agent prompts |
+| LOD-0 | `[ID](findings/{ID}.md) \| Severity \| One sentence` | 30/finding | Agent return message, orchestrator context, `{PRIOR_FINDINGS_SUMMARY}` |
+| LOD-1 | [ID](findings/{ID}.md) + title + severity + CVSS + CWE + file:line + paragraph | 100/finding | `{FINDINGS_DIR}/index.md`, terminal agent prompts |
 | LOD-2 | Full finding with PoC, remediation, regression test | 800/finding | `{FINDINGS_DIR}/{FINDING-ID}.md`, read on demand |
 
 **How it flows:**
@@ -96,8 +98,8 @@ The recon report uses the same LOD architecture as findings:
 
 | Level | Content | Where it lives |
 |---|---|---|
-| LOD-0 | `Step # \| Section Name \| Key facts` | `{RECON_DIR}/index.md` (top table) |
-| LOD-1 | Key metric + key files + notable observations + details link | `{RECON_DIR}/index.md` (section briefs) |
+| LOD-0 | `[Step #](recon/step-{NN}-{name}.md) \| Section Name \| Key facts` | `{RECON_DIR}/index.md` (top table) |
+| LOD-1 | Key metric + key files + notable observations + [details link](recon/step-{NN}-{name}.md) | `{RECON_DIR}/index.md` (section briefs) |
 | LOD-2 | Full tables with every file:line reference | `{RECON_DIR}/step-{NN}-{name}.md` |
 
 **How it flows:**
@@ -183,6 +185,67 @@ All agents inherit file exclusion rules from `agent-common.md`. The primary mech
 - Plugin sections add to every injected agent's context — keep plugins concise
 - For small/medium codebases (under chunking thresholds), the system runs exactly as before with no overhead
 
+## Trust Model & External Audit Integration
+
+### Trust Model Flow
+
+The project's `SECURITY.md` (or equivalent security policy / threat model document) is consumed at the earliest stage of analysis and propagated through the entire pipeline:
+
+```
+Recon Step 4 (Wave A)
+  ├─ Glob for SECURITY.md, SECURITY*, threat-model*
+  ├─ Extract: trust levels, accepted risks, threat assumptions, security invariants
+  ├─ Write to step-04-boundaries.md → "Documented Trust Model" section
+  └─ Annotate code-inferred boundaries: [DOCUMENTED] / [MISMATCH] / [UNDOCUMENTED]
+       │
+       ▼
+Orchestrator Step 3 (Analysis)
+  ├─ Read trust model from step-04-boundaries.md
+  ├─ Log: trust_model status, source document, counts
+  └─ Record in checkpoint.md for resume
+       │
+       ▼
+All Downstream Agents (via agent-common.md)
+  ├─ Read step-04-boundaries.md "Documented Trust Model" section
+  ├─ Filter: findings within documented trust levels → require stronger evidence or downgrade
+  ├─ Annotate: [ACCEPTED-RISK] for documented risk acceptances
+  └─ Escalate: [INVARIANT-VIOLATION] for findings that break documented security invariants
+       │
+       ▼
+Finding Critic (Validation Stage)
+  ├─ Cross-check all findings against trust model
+  ├─ Downgrade findings targeting explicitly-trusted components (if trust assumption is reasonable)
+  └─ Upgrade findings that violate documented invariants
+```
+
+This early integration reduces false positive rates by letting agents filter against the project's own security contract rather than discovering and re-assessing trust assumptions independently.
+
+### External Audit Tool Integration (OpenClaw)
+
+External audit tool results (openclaw, or similar) are detected during recon and used to avoid duplicate work:
+
+```
+Recon Step 4 (Wave A)
+  ├─ Glob for openclaw*, .openclaw*, openclaw-report*, openclaw-results*
+  ├─ Extract: confirmed finding IDs, severities, affected files
+  └─ Write to step-04-boundaries.md → "External Audit Findings" section
+
+Recon Step 10 (Wave A)
+  ├─ Glob for openclaw config/results (broader pattern set)
+  └─ Write to step-10-security-work.md → "External Audit Tool Results" section
+       │
+       ▼
+All Downstream Agents (via agent-common.md)
+  ├─ Read external audit findings from step-04/step-10
+  ├─ Cross-reference: annotate matching findings with [CORROBORATES: {tool} {id}]
+  ├─ Avoid duplicates: same root cause + same file → reference external finding instead
+  └─ Deepen: if additional attack surface beyond external tool's scope → new finding with reference
+
+Finding Critic
+  ├─ Fast-track findings corroborated by external tools
+  └─ Note coverage gaps where pipeline found issues the external tool missed
+```
+
 ## Adding New Agents
 
 1. Create a prompt file in `references/prompts/` following the pattern of existing prompts
@@ -191,6 +254,10 @@ All agents inherit file exclusion rules from `agent-common.md`. The primary mech
 4. Add the agent to the appropriate stage in `references/commands/security-analyst.md`
 
 ## Adding New Plugins
+
+To create a new plugin interactively, use `/security-analyst:create-plugin [framework]`. This validates against existing plugins, checks base agent coverage, researches framework security characteristics, and generates the plugin file. To contribute it back, use `/security-analyst:contribute-plugin [plugin-name]`.
+
+For manual creation:
 
 1. Create a `.md` file in `references/plugins/` (e.g., `spring-boot.md`)
 2. Add YAML frontmatter with `name` and `detect` criteria (files, dependencies, keywords)

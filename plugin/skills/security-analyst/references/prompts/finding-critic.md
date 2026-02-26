@@ -35,6 +35,8 @@ Check each finding against common false positive patterns:
 - Theoretical attacks that require preconditions impossible in this deployment
 - Framework-level protections the finding didn't account for (e.g., auth token verification handled by the SDK, ORM parameterization preventing SQL injection, framework CSRF protection)
 - Sanitization in a shared utility the finding didn't trace through
+- **Trust model violations:** Read `{RECON_DIR}/step-04-boundaries.md` for the documented trust model. If a finding targets a component that the project explicitly declares as trusted AND the trust assumption is reasonable for the deployment context, downgrade to Info with `[ACCEPTED-RISK]` annotation. Conversely, if a finding violates a documented security invariant, consider upgrading severity.
+- **External audit correlation:** If a finding is annotated with `[CORROBORATES: {tool} {id}]`, verify the correlation is accurate. If the external tool already confirmed the same root cause, the finding is likely valid — fast-track confirmation. If the external tool missed this pattern, note the coverage gap.
 
 ### Task 3: CVSS & Scoring Validation
 

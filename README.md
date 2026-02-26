@@ -48,14 +48,26 @@ This skill performs comprehensive security analysis. It instructs agents to read
 
 ## Installation
 
-Copy or symlink this skill to your skills directory:
+### Plugin install (recommended)
+
+```
+/plugin marketplace add paixaop/security-analyst
+/plugin install security-analyst
+```
+
+This works in both Claude Code and Cursor.
+
+### Manual install
 
 ```bash
-# Claude Code
-cp -r . ~/.claude/skills/security-analyst
+# Clone and run the install script
+git clone https://github.com/paixaop/security-analyst.git
+cd security-analyst
+./install.sh
 
-# Cursor
-cp -r . ~/.cursor/skills/security-analyst
+# Or copy directly
+cp -r plugin/skills/security-analyst ~/.claude/skills/security-analyst   # Claude Code
+cp -r plugin/skills/security-analyst ~/.cursor/skills/security-analyst   # Cursor
 ```
 
 ## Requirements
@@ -106,7 +118,7 @@ No credentials, API keys, or authentication tokens are required. All analysis is
 
 ## Output
 
-Full runs write to `docs/security/runs/{YYYY-MM-DD-HHMMSS}/`. To change the output location, edit the `RUN_DIR` path in [references/constants.md](references/constants.md).
+Full runs write to `docs/security/runs/{YYYY-MM-DD-HHMMSS}/`. To change the output location, edit the `RUN_DIR` path in [references/constants.md](plugin/skills/security-analyst/references/constants.md).
 
 | Path | Content |
 |------|---------|
@@ -118,8 +130,9 @@ Full runs write to `docs/security/runs/{YYYY-MM-DD-HHMMSS}/`. To change the outp
 | `reports/tracing.md` | Data flow tracing |
 | `reports/exploits.md` | Exploit catalog with PoCs |
 | `reports/validation.md` | Validated findings |
-| `reports/final.md` | Complete security report |
+| `reports/executive-report.md` | Executive security report |
 | `reports/fix-plan.md` | Implementation plan |
+| `reports/project-recon.md` | Full LOD-2 consolidated recon report |
 | `reports/compliance.md` | Compliance mapping (when requested) |
 | `reports/delta.md` | Delta between runs (when requested) |
 | `reports/privacy.md` | Privacy assessment (when requested) |
@@ -131,7 +144,7 @@ The reconnaissance phase is the foundation — every downstream agent reads it. 
 
 Recon produces no findings and no exploits — it is purely a map. This makes `/security-analyst:recon` safe to run as a first step.
 
-### Final Report (`reports/final.md`)
+### Executive Report (`reports/executive-report.md`)
 
 The main deliverable for stakeholders. Contains an executive summary (overall posture, critical findings, top 3 actions), a risk dashboard (severity x confidence matrix with exploit chain count), all Critical/High/Medium findings with full exploit scenarios ordered by CVSS, Low/Informational findings in brief table format, exploit chains showing how multiple findings combine into multi-step attacks, root cause analysis grouping findings by underlying cause with systemic fixes, MITRE ATT&CK tactic coverage with gap analysis, a remediation roadmap (quick wins, immediate, short-term, medium-term, backlog), comparison with previously identified security work, positive security observations, methodology notes, and critic validation statistics (confirmed/downgraded/removed/upgraded findings).
 
@@ -191,17 +204,31 @@ A checkpoint file (`checkpoint.md`) is written to the run directory after each s
 ## Project Structure
 
 ```
-security-analyst/
-├── SKILL.md
-├── README.md (this file)
-├── references/
-│   ├── architecture.md    # Architecture reference
-│   ├── constants.md       # Paths, agent registry, templates
-│   ├── commands/          # Entry points
-│   ├── prompts/           # Agent prompt templates
-│   └── plugins/           # Framework-specific checks (16 plugins)
-└── assets/
-    └── templates/         # Output format templates
+security-analyst/                           # GitHub repo root
+├── .claude-plugin/
+│   └── marketplace.json                    # Marketplace manifest
+├── README.md                               # This file
+├── LICENSE
+├── CONTRIBUTING.md                         # Plugin authoring guide
+├── install.sh                              # Legacy manual install
+├── docs/                                   # Dev-only artifacts
+│
+└── plugin/                                 # The installable plugin
+    ├── .claude-plugin/
+    │   └── plugin.json                     # Plugin manifest
+    ├── .cursor-plugin/
+    │   └── plugin.json                     # Cursor compatibility
+    └── skills/
+        └── security-analyst/               # The skill folder
+            ├── SKILL.md
+            ├── references/
+            │   ├── architecture.md
+            │   ├── constants.md
+            │   ├── commands/               # Entry points
+            │   ├── prompts/                # Agent prompt templates
+            │   └── plugins/                # Framework-specific checks (16 plugins)
+            └── assets/
+                └── templates/              # Output format templates
 ```
 
 ## Troubleshooting
@@ -219,78 +246,9 @@ security-analyst/
 **Findings seem generic**
 - Re-run with a focused scope: `/security-analyst:focused authentication`
 
-## Contributing a Plugin
+## Contributing
 
-Plugins add framework-specific security checks that are automatically injected into agent prompts when the framework is detected. There are currently 16 plugins (Firebase, React, Django, Next.js, Spring Boot, etc.). To add a new one:
-
-### 1. Create the plugin file
-
-Add a markdown file to `references/plugins/` using lowercase with hyphens (e.g., `my-framework.md`).
-
-### 2. Add frontmatter with detection criteria
-
-```yaml
----
-name: "My Framework"
-detect:
-  files: ["my-framework.config.js", "my-framework.json"]
-  dependencies: ["my-framework", "@my-framework/core"]
-  keywords: ["My Framework"]
----
-```
-
-A plugin matches if **any single** criterion hits:
-
-| Field | How it matches |
-|-------|---------------|
-| `detect.files` | File exists in the project root (glob supported) |
-| `detect.dependencies` | Package found in `step-13-dependencies.md` recon output |
-| `detect.keywords` | String match in `step-01-metadata.md` (Framework/Infrastructure/Runtime fields) |
-
-### 3. Add agent sections
-
-Each `## {agent-name}` section contains framework-specific checks for that agent. Only include sections relevant to your framework — omitted sections are silently skipped.
-
-Available agent sections:
-
-| Section | Phase | Focus |
-|---------|-------|-------|
-| `recon-agent` | Recon | Additional discovery patterns |
-| `attack-surface-http` | Surface | HTTP endpoint patterns |
-| `attack-surface-authz` | Surface | Authorization analysis |
-| `attack-surface-frontend` | Surface | Client-side security |
-| `attack-surface-llm` | Surface | AI/LLM integrations |
-| `attack-surface-integrations` | Surface | External API patterns |
-| `git-history-injections` | Surface | Injection attack vectors |
-| `git-history-auth-bypass` | Surface | Auth bypass patterns |
-| `git-history-ssrf` | Surface | SSRF patterns |
-| `git-history-data-exposure` | Surface | Data leakage patterns |
-| `logic-race-conditions` | Logic | Concurrency issues |
-| `logic-authz-escalation` | Logic | Privilege escalation |
-| `logic-pipeline-exploit` | Logic | Pipeline logic flaws |
-| `logic-dos` | Logic | Denial of service |
-| `data-flow-tracer` | Tracing | Data flow analysis |
-| `dependency-audit` | Surface | Dependency vulnerabilities |
-| `config-infrastructure` | Surface | Infrastructure config |
-
-### 4. Write actionable checks
-
-Each section should contain numbered checks with specific patterns to search for, concrete exploit scenarios, and framework-specific context. Example:
-
-```markdown
-## attack-surface-authz
-
-1. Are Firestore security rules using `request.auth != null` without role checks? Grep for `allow read, write: if request.auth != null` in `firestore.rules`.
-2. Can a user escalate by writing directly to a role field? Check if `users/{userId}` rules restrict which fields are writable.
-```
-
-Checks should be **complementary** to the generic agent checks, not repetitive. Focus on framework-specific gotchas, defaults, and attack vectors.
-
-### 5. Test your plugin
-
-Run `/security-analyst:recon` against a project that uses your framework. The recon output should trigger your plugin's detection criteria. Then run a focused analysis to verify your checks produce meaningful findings.
-
-See [references/plugins/README.md](references/plugins/README.md) for the full plugin specification and existing plugins for reference.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for how to add framework-specific plugins and contribute to the project.
 
 ## Disclaimer
 
@@ -316,6 +274,6 @@ See [LICENSE](LICENSE) for the full license text.
 
 ## References
 
-- [references/architecture.md](references/architecture.md) — Architecture, LOD system, agent design
-- [references/constants.md](references/constants.md) — Paths, filenames, agent registry
-- [references/plugins/README.md](references/plugins/README.md) — Plugin format and detection
+- [plugin/skills/security-analyst/references/architecture.md](plugin/skills/security-analyst/references/architecture.md) — Architecture, LOD system, agent design
+- [plugin/skills/security-analyst/references/constants.md](plugin/skills/security-analyst/references/constants.md) — Paths, filenames, agent registry
+- [plugin/skills/security-analyst/references/plugins/README.md](plugin/skills/security-analyst/references/plugins/README.md) — Plugin format and detection

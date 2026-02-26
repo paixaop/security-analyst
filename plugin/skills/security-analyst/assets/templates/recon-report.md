@@ -27,25 +27,25 @@ The recon report uses the same Level of Detail architecture as findings. Instead
 
 ## LOD-0: Summary Table (in index.md)
 
-Each recon agent returns one LOD-0 row. The orchestrator assembles these into the index.
+Each recon agent returns one LOD-0 row. The orchestrator assembles these into the index. The Step column links to the full LOD-2 step file.
 
-Format: `| [Step #] | [Section Name] | [Key facts — one line] |`
+Format: `| [Step #](recon/step-{NN}-{name}.md) | [Section Name] | [Key facts — one line] |`
 
 Example:
 ```
 | # | Section | Key Facts |
 |---|---------|-----------|
-| 1 | Project Metadata | TypeScript, Firebase Cloud Functions, Node 22, Jest |
-| 3 | HTTP Entry Points | 12 endpoints: 4 unauth, 8 auth, 5 background |
-| 5 | Crown Jewels | OAuth tokens (KMS encrypted), PII (email/name), automated email sending |
-| 6 | Auth & AuthZ | Firebase Auth, Firestore rules, Cloud KMS token encryption |
+| [1](recon/step-01-metadata.md) | Project Metadata | TypeScript, Firebase Cloud Functions, Node 22, Jest |
+| [3](recon/step-03-http.md) | HTTP Entry Points | 12 endpoints: 4 unauth, 8 auth, 5 background |
+| [5](recon/step-05-crown-jewels.md) | Crown Jewels | OAuth tokens (KMS encrypted), PII (email/name), automated email sending |
+| [6](recon/step-06-auth.md) | Auth & AuthZ | Firebase Auth, Firestore rules, Cloud KMS token encryption |
 ```
 
 ---
 
 ## LOD-1: Section Brief (in index.md)
 
-Each recon agent returns one LOD-1 paragraph. The orchestrator assembles these below the LOD-0 table.
+Each recon agent returns one LOD-1 paragraph. The orchestrator assembles these below the LOD-0 table. The "Details" field MUST be a markdown link to the step file.
 
 Format:
 ```
@@ -53,7 +53,7 @@ Format:
 **[Key metric]:** [value]
 **Key files:** [2-4 most important file paths with line numbers]
 **Notable:** [1-2 sentences on security-relevant observations — facts only, not analysis]
-**Details:** recon/step-{NN}-{name}.md
+**Details:** [recon/step-{NN}-{name}.md](recon/step-{NN}-{name}.md)
 ```
 
 Example:
@@ -62,7 +62,7 @@ Example:
 **Endpoints:** 12 (4 unauthenticated, 8 authenticated, 5 background/scheduled)
 **Key files:** functions/src/index.ts:1-50, functions/src/webhooks.ts:1-30
 **Notable:** 2 unauthenticated webhook endpoints accept external input. processUserEmails is a Cloud Task handler.
-**Details:** recon/step-03-http.md
+**Details:** [recon/step-03-http.md](recon/step-03-http.md)
 ```
 
 ---
@@ -132,8 +132,35 @@ Include: HTTP handlers, webhooks, API routes, RPC endpoints, scheduled jobs, eve
 
 ### step-04-boundaries.md — Trust Boundaries
 
-| Boundary | Direction | Source | Destination | Data Exchanged | Protection |
-|----------|-----------|--------|-------------|----------------|------------|
+#### Documented Trust Model
+
+If the project contains a SECURITY.md, security policy, or threat model document, extract and present the declared trust model here. If no documented trust model exists, write "No documented trust model found."
+
+| Element | Source Document | Details |
+|---------|----------------|---------|
+| Trust Level | | e.g., "Internal services: trusted", "Webhooks: untrusted" |
+| Accepted Risk | | Documented risk acceptances with rationale |
+| Threat Assumption | | Declared attacker model, in-scope/out-of-scope |
+| Security Invariant | | Assumptions the system explicitly relies on |
+
+#### External Audit Findings (OpenClaw / Other Tools)
+
+If openclaw results or other external audit tool outputs are found, summarize confirmed findings here. If none found, write "No external audit results detected."
+
+| Audit Tool | Finding ID | Severity | Affected File | Status | Summary |
+|------------|-----------|----------|---------------|--------|---------|
+
+**Audit summary:** [total findings, severity breakdown, confirmed vs. unconfirmed]
+
+#### Code-Inferred Trust Boundaries
+
+| Boundary | Direction | Source | Destination | Data Exchanged | Protection | Trust Model Status |
+|----------|-----------|--------|-------------|----------------|------------|--------------------|
+
+The "Trust Model Status" column indicates alignment with the documented trust model:
+- `[DOCUMENTED]` — boundary matches a declared trust level or assumption
+- `[MISMATCH]` — boundary contradicts the documented model (investigate further)
+- `[UNDOCUMENTED]` — no corresponding entry in the documented trust model
 
 Categories to identify:
 - **External → System**: Webhooks, callbacks, API endpoints receiving external input
@@ -250,6 +277,13 @@ Use: `git log --all --oneline --grep="security" --grep="fix" --grep="vuln" --gre
 
 | Tool | Results Location | Finding Count | Suppression Count |
 |------|-----------------|---------------|-------------------|
+
+#### External Audit Tool Results
+
+| Tool | Config/Results Path | Finding Count | Severity Breakdown | Last Run |
+|------|-------------------|---------------|-------------------|----------|
+
+If openclaw or other external audit tool results are found, summarize here. Include config file locations and result file locations. Note which findings are marked as confirmed, triaged, or accepted.
 
 #### Security Documentation
 

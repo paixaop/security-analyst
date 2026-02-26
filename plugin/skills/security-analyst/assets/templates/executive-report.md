@@ -1,6 +1,6 @@
 # Final Report Structure
 
-The report writer agent produces the final security analysis report following this structure. Output to `{REPORTS_DIR}/final.md`.
+The report writer agent produces the executive security analysis report following this structure. Output to `{REPORTS_DIR}/executive-report.md`.
 
 ---
 
