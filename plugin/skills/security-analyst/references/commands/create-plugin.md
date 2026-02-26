@@ -16,9 +16,9 @@ If no framework name is provided, ask the user: "What framework or technology sh
 
 ## Execution
 
-Before any other output, print this banner exactly:
+**MANDATORY — print this banner before ANY other output, tool call, or action:**
 
-> **Security Analyst** · create-plugin · Pedro Paixao · AGPL-3.0
+> **Security Analyst** v1.0.0 · create-plugin · paixaop/security-analyst · AGPL-3.0
 > Authorized use only — see SKILL.md Disclaimer
 
 ### Step 1: Parse Input

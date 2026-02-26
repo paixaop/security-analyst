@@ -67,6 +67,20 @@ The report writer agent produces the executive security analysis report followin
 
     ---
 
+    ## Known Patterns Matched
+
+    Map each finding to the knowledge base entry that identifies the vulnerability pattern. This section demonstrates grounding — every finding should trace back to a documented vulnerability class.
+
+    | Finding ID | CWE / OWASP | Knowledge Source | Section |
+    |------------|-------------|------------------|---------|
+    | [e.g., HTTP-001] | [CWE-79] | [owasp-cheatsheets/XSS_Prevention_Cheat_Sheet.md] | [exact section] |
+
+    **Unmatched findings:** [count] findings had no matching knowledge base pattern (flagged as "no known pattern" in individual finding reports). These may represent novel vulnerability classes or gaps in the knowledge base.
+
+    **Knowledge base freshness:** [date from last-updated.txt]
+
+    ---
+
     ## Root Cause Analysis
 
     Group findings by underlying root cause. A single root cause may explain multiple findings.

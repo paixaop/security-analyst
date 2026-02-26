@@ -2,6 +2,11 @@
 description: "Security analysis for development plans and specifications — threat modeling, design-level vulnerability assessment, and spec change recommendations. No code required."
 ---
 
+**MANDATORY — print this banner before ANY other output, tool call, or action:**
+
+> **Security Analyst** v1.0.0 · security-analysis · paixaop/security-analyst · AGPL-3.0
+> Authorized use only — see SKILL.md Disclaimer
+
 # Plan Security Analysis
 
 Security review for development plans and specifications. Operates on architecture and design descriptions, not code. Produces threat models, design-level findings, and spec change recommendations.

@@ -1,5 +1,11 @@
 # Shared Agent Output Instructions
 
+## Grounding Mandate
+
+The following vulnerability patterns are from the OWASP Cheat Sheet Series and CWE Top 25 knowledge base, selected for your specific focus area by the KnowledgeRouter. Every finding you report MUST cite the exact knowledge `Source` (format: `file:section`) that identifies the matched vulnerability pattern. If no pattern below matches what you observe, state "no known pattern" in the finding's Known Patterns Matched section.
+
+{KNOWLEDGE_CHECKS}
+
 ## Finding Output (LOD Architecture)
 
 For each finding you discover:

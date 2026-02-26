@@ -35,6 +35,7 @@ Comprehensive security analysis skill for Claude Code, Cursor, and Codex. Identi
 | `/security-analyst:diff [run-a] [run-b]` | Compare two runs — new, resolved, persistent |
 | `/security-analyst:compliance [framework]` | Map findings to compliance controls |
 | `/security-analyst:privacy` | PII flows, consent, data subject rights |
+| `/security-analyst:update-knowledge` | Refresh OWASP/CWE vulnerability knowledge base |
 
 ## Before You Install
 

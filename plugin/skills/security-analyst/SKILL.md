@@ -45,6 +45,7 @@ Comprehensive security analysis suite that identifies vulnerabilities, assesses 
 | `/security-analyst:diff [run-a] [run-b]` | Compare two runs — new, resolved, persistent findings | 1 | Delta report |
 | `/security-analyst:compliance [framework]` | Map findings to SOC 2 / ISO 27001 / PCI DSS / HIPAA / GDPR | 1 | Compliance report |
 | `/security-analyst:privacy` | Privacy assessment — PII flows, consent, data subject rights | 15+ | Privacy report |
+| `/security-analyst:update-knowledge` | Refresh OWASP cheat sheets, Top 10 lists, and CWE Top 25 | 1 | Updated knowledge files |
 | `/security-analyst:create-plugin [framework]` | Generate a framework-specific security plugin | 0 | Plugin file |
 | `/security-analyst:create-plugin [framework] [file]` | Generate a plugin using a reference file | 0 | Plugin file |
 | `/security-analyst:contribute-plugin [plugin-name]` | Open a PR to contribute a plugin to the project | 0 | GitHub PR |
@@ -60,6 +61,10 @@ Recon: Reconnaissance (14 agents, all parallel — 2 waves)
   └─ Wave A (12 agents, batch-spawned): metadata, docs, HTTP, boundaries, crown jewels, auth, integrations, secrets, security work, config, frontend, deps
   └─ Wave B (2 agents, batch-spawned): data flows, scope notes (depend on Wave A)
   └─ Assembly: orchestrator builds recon/index.md from LOD-0+1 returns
+
+Knowledge: KnowledgeRouter (1 agent, after recon)
+  └─ Selects OWASP/CWE knowledge files matching the project's stack
+  └─ Output injected as grounding context into every downstream agent
 
 Surface: Attack Surface + Git History + Dependencies + Config (up to 16 agents, batch-spawned in parallel)
   ├─ HTTP entry points, authz rules, integrations, frontend
@@ -216,6 +221,14 @@ Traces all PII data flows, evaluates consent mechanisms, checks data subject rig
 
 ```
 /security-analyst:privacy
+```
+
+### Update Knowledge
+
+Refreshes the local vulnerability knowledge base used to ground all findings. Updates OWASP Cheat Sheets (via git submodule), OWASP Top 10 lists (Web, API, LLM), and CWE Top 25 entries. The knowledge base lives at `references/knowledge/` inside the skill directory. Run this before your first full analysis and periodically thereafter to keep patterns current.
+
+```
+/security-analyst:update-knowledge
 ```
 
 ### Fix Plan
@@ -449,6 +462,11 @@ These are **text-based descriptions and code snippets in markdown files**, not s
 The skill sets `always: false` in its frontmatter. It only activates when the user explicitly requests a security audit, penetration test, threat model, vulnerability scan, SBOM, compliance mapping, or privacy assessment. It does not run automatically on every conversation.
 
 ## Troubleshooting
+
+**Skill doesn't load automatically / "skill not found" error**
+- On **Claude Code**: the skill activates when natural language matches the description. If typing `/security-analyst:full` directly doesn't load it, first say "load security-analyst" or use natural language: "run a full security audit". Once loaded in a conversation, all commands work.
+- On **Cursor**: skills installed via the plugin system should be available immediately. If not, verify the plugin is installed: check `~/.cursor/plugins/` or run `/plugin install security-analyst`.
+- Verify the skill files exist at the expected path (`~/.claude/skills/security-analyst/SKILL.md` for Claude Code, or `~/.cursor/skills/security-analyst/SKILL.md` for Cursor)
 
 **Skill doesn't trigger on security-related requests**
 - Ensure the description includes your trigger phrase. Try: "run a security audit", "penetration test", "threat model", "vulnerability scan", "SBOM", "compliance mapping"

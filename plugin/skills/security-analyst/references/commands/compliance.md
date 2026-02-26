@@ -3,6 +3,11 @@ description: "Map security findings to a compliance framework (SOC 2, ISO 27001,
 model: opus
 ---
 
+**MANDATORY — print this banner before ANY other output, tool call, or action:**
+
+> **Security Analyst** v1.0.0 · compliance · paixaop/security-analyst · AGPL-3.0
+> Authorized use only — see SKILL.md Disclaimer
+
 # Security Analyst — Compliance Mapping
 
 Map findings from an existing security analysis run to a compliance framework.

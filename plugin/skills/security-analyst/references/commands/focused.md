@@ -3,6 +3,11 @@ description: "Focused security analysis on a specific component — recon + rele
 model: opus
 ---
 
+**MANDATORY — print this banner before ANY other output, tool call, or action:**
+
+> **Security Analyst** v1.0.0 · focused · paixaop/security-analyst · AGPL-3.0
+> Authorized use only — see SKILL.md Disclaimer
+
 # Security Analyst — Focused Component Analysis
 
 Run reconnaissance followed by analysis phases relevant to a specific component or area.

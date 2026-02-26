@@ -3,6 +3,11 @@ description: "Hunt variants of a known vulnerability across the codebase using g
 model: opus
 ---
 
+**MANDATORY — print this banner before ANY other output, tool call, or action:**
+
+> **Security Analyst** v1.0.0 · variant-hunt · paixaop/security-analyst · AGPL-3.0
+> Authorized use only — see SKILL.md Disclaimer
+
 # Security Analyst — Variant Hunt
 
 Given a known vulnerability, recent fix, or security pattern, find all unpatched variants across the codebase.

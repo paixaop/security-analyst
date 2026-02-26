@@ -3,6 +3,11 @@ description: "Deep offensive security analysis — penetration tester mindset ac
 model: opus
 ---
 
+**MANDATORY — print this banner before ANY other output, tool call, or action:**
+
+> **Security Analyst** v1.0.0 · paixaop/security-analyst · AGPL-3.0
+> Authorized use only — see SKILL.md Disclaimer
+
 # Security Analyst — Offensive Penetration Testing Orchestrator
 
 You are the orchestrator for an agent-based offensive security analysis. You coordinate specialized agents through multi-stage execution, consolidating findings and managing the analysis lifecycle.
@@ -69,6 +74,9 @@ REPORTS_DIR: {path}
 ## Plugin Sections
 [pre-extracted plugin sections for agents in this stage, or "None"]
 
+## Knowledge Sections
+[per-agent knowledge sections from KnowledgeRouter for agents in this stage, or "None"]
+
 ## Prior Findings
 Read {FINDINGS_DIR}/index.md for findings from prior stages.
 [or "None — this is the first analysis stage" for the surface stage]
@@ -92,6 +100,7 @@ Read {FINDINGS_DIR}/index.md for findings from prior stages.
 {FINDINGS_DIR}: {path}
 {PRIOR_FINDINGS_SUMMARY}: [LOD-0 table or "None"]
 {PLUGIN_CHECKS}: [per-agent plugin sections]
+{KNOWLEDGE_CHECKS}: [per-agent knowledge sections from KnowledgeRouter, or "No knowledge base patterns for this agent."]
 
 ## Consolidation Rules
 [inline: dedup, PARTIAL handling, index building — from "Consolidation Between Stages"]
@@ -289,6 +298,33 @@ Read `{RECON_DIR}/index.md` and selectively read relevant step files to determin
 
 **Claude Code / Codex:** Create tasks with TaskCreate for tracking progress. **Cursor:** Skip task creation (no TaskCreate).
 
+### Step 3.1: Knowledge Routing
+
+After analyzing the recon report and determining which agents to skip (Step 3), spawn a KnowledgeRouter agent. It reads the vulnerability knowledge base, matches it to the project's technology stack, and produces **per-agent knowledge sections** — one `## {agent-name}` block per downstream agent, containing only the OWASP/CWE patterns relevant to that agent's focus area. This mirrors the plugin injection system.
+
+1. Build the active agent list from Step 3's skip decisions (e.g., if no frontend → exclude `attack-surface-frontend`)
+2. Read `{PROMPTS_DIR}/knowledge-router.md`
+3. Spawn agent via Task tool:
+   - name: "knowledge-router"
+   - subagent_type: "generalPurpose"
+   - prompt: Content of knowledge-router.md with placeholders:
+     - `{RECON_INDEX_PATH}` → absolute path to recon index
+     - `{RECON_DIR}` → absolute path to recon directory
+     - `{KNOWLEDGE_DIR}` → `{SKILL_ROOT}/references/knowledge`
+     - `{ACTIVE_AGENTS}` → comma-separated list of agents that will be spawned (from skip decisions)
+4. **Wait:** Task call returns when done
+5. Parse the returned output into per-agent sections (same parsing as plugin sections in Step 3.5):
+   - For each `## {agent-name}` heading, store the section content keyed by agent name
+   - These are injected into each agent's prompt via the `{KNOWLEDGE_CHECKS}` placeholder during prompt construction
+   - Agents not covered in the output receive `{KNOWLEDGE_CHECKS}` = "No knowledge base patterns for this agent."
+
+**Injection mechanics** — identical to `{PLUGIN_CHECKS}`:
+- During prompt construction (Step 4+), for each agent, look up its `{agent-name}` key in the knowledge sections map
+- Replace `{KNOWLEDGE_CHECKS}` in the agent's prompt with its matching section content
+- If multiple sections exist (unlikely — only one KnowledgeRouter), concatenate them
+
+If the knowledge base is empty or stale (last-updated.txt reads "never" or is >30 days old), the KnowledgeRouter will warn but still produce sections from whatever files exist. The analysis continues regardless — agents state "no known pattern" when no match exists.
+
 ### Step 3.2: Target Counting & Work Partitioning
 
 For large codebases, individual agents may exhaust their context window before completing analysis. The orchestrator prevents this by **pre-splitting work** into chunks when target counts exceed thresholds (see `references/constants.md` → "Chunking Thresholds").
@@ -347,6 +383,9 @@ Write the analysis configuration to `{CHECKPOINT}` so stage orchestrators (and a
 - Record critical data flows (for tracing stage)
 - Record trust model status: `trust_model: {present|absent}`, source document path, count of trust levels/accepted risks/invariants
 - Record external audit status: `external_audit: {present|absent}`, tool name, confirmed finding count and severity breakdown
+
+- Record knowledge routing: `knowledge_base: {freshness date}`, files loaded count, agents covered count, whether KnowledgeRouter warned about staleness
+- Record per-agent knowledge sections map (agent-name → section content) for use by stage orchestrators
 
 This is the **last step that runs in the top-level orchestrator's context before dispatching stages**. All subsequent stages are dispatched as stage-orchestrator Tasks.
 
@@ -832,6 +871,7 @@ PROMPT CONSTRUCTION (for each agent):
    - {INCIDENTAL_FINDINGS_SECTION} → content from agent-common.md
    - {AGENT_PREFIX} → agent's finding ID prefix (e.g., HTTP, AUTHZ, INJ)
    - {AGENT_NAME} → agent's display name
+   - {KNOWLEDGE_CHECKS} → per-agent knowledge section from KnowledgeRouter (Step 3.1), keyed by agent name — same injection pattern as {PLUGIN_CHECKS}
    - Append the agent-common.md output instructions to the end of the prompt
 
 CHUNKING (if partition data exists for this agent):
