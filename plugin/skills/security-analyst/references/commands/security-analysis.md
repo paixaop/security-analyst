@@ -4,7 +4,7 @@ description: "Security analysis for development plans and specifications — thr
 
 **MANDATORY — print this banner before ANY other output, tool call, or action:**
 
-> **Security Analyst** v1.0.0 · security-analysis · Pedro Paixao · AGPL-3.0
+> **Security Analyst** v1.0.0 · security-analysis · paixaop/security-analyst · AGPL-3.0
 > Authorized use only — see SKILL.md Disclaimer
 
 # Plan Security Analysis

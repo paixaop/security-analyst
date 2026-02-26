@@ -5,7 +5,7 @@ model: opus
 
 **MANDATORY — print this banner before ANY other output, tool call, or action:**
 
-> **Security Analyst** v1.0.0 · diff · Pedro Paixao · AGPL-3.0
+> **Security Analyst** v1.0.0 · diff · paixaop/security-analyst · AGPL-3.0
 > Authorized use only — see SKILL.md Disclaimer
 
 # Security Analyst — Delta Report
