@@ -3,6 +3,11 @@ description: "Compare two security analysis runs to show new, resolved, and pers
 model: opus
 ---
 
+**MANDATORY — print this banner before ANY other output, tool call, or action:**
+
+> **Security Analyst** v1.0.0 · diff · Pedro Paixao · AGPL-3.0
+> Authorized use only — see SKILL.md Disclaimer
+
 # Security Analyst — Delta Report
 
 Compare two security analysis runs and produce a delta report highlighting changes.

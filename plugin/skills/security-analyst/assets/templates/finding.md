@@ -69,6 +69,14 @@ Every Medium+ finding MUST use this format. Low and Informational findings can u
     // Test that prevents reintroduction of this vulnerability
     ```
 
+    #### Known Patterns Matched
+
+    | Source | Pattern | Section |
+    |--------|---------|---------|
+    | [e.g., owasp-cheatsheets/XSS_Prevention_Cheat_Sheet.md] | [CWE-79: Reflected XSS] | [exact section heading or line range] |
+
+    If no known pattern matches, write: "No known pattern — finding based on code-level analysis only."
+
     #### References
     - [Relevant CWE page]
     - [Related findings in this report]

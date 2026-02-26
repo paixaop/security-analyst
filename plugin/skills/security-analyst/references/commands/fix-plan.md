@@ -3,6 +3,11 @@ description: "Generate an implementation plan to fix all findings from a securit
 model: opus
 ---
 
+**MANDATORY — print this banner before ANY other output, tool call, or action:**
+
+> **Security Analyst** v1.0.0 · fix-plan · Pedro Paixao · AGPL-3.0
+> Authorized use only — see SKILL.md Disclaimer
+
 # Security Analyst — Fix Plan Generator
 
 Generate a structured implementation plan from an existing security analysis report. Each finding becomes an actionable task with fix code, regression tests, and effort estimates.

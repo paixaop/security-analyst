@@ -3,6 +3,11 @@ description: "Generate a threat model document — maps trust boundaries, crown 
 model: opus
 ---
 
+**MANDATORY — print this banner before ANY other output, tool call, or action:**
+
+> **Security Analyst** v1.0.0 · threat-model · Pedro Paixao · AGPL-3.0
+> Authorized use only — see SKILL.md Disclaimer
+
 # Security Analyst — Threat Model
 
 Generate a threat model document from the codebase reconnaissance. This is equivalent to `/security-analyst:recon` but with additional threat modeling analysis.

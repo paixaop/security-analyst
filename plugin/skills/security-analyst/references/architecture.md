@@ -26,12 +26,19 @@ security-analyst/
 │   │   ├── diff.md                      # Delta report entry point
 │   │   ├── compliance.md                # Compliance mapping entry point
 │   │   ├── privacy.md                   # Privacy assessment entry point
+│   │   ├── update-knowledge.md          # Knowledge base refresh
 │   │   └── security-analysis.md         # Plan-level security analysis
-│   ├── prompts/                         # Agent prompt templates (25 files)
+│   ├── prompts/                         # Agent prompt templates (26 files)
+│   │   ├── knowledge-router.md          # Post-recon: knowledge base routing
 │   │   ├── recon-agent.md               # Phase 0: reconnaissance
 │   │   ├── attack-surface-http.md        # Phase 1: HTTP entry points
 │   │   ├── attack-surface-authz.md      # Phase 1: database/authz rules
 │   │   └── ... (see constants.md)       # All agent prompts
+│   ├── knowledge/                       # Vulnerability knowledge base (grounding)
+│   │   ├── owasp-cheatsheets/           # OWASP Cheat Sheet Series (git submodule)
+│   │   ├── cwe-top-25/                  # CWE Top 25 entries
+│   │   ├── owasp-top-10/               # OWASP Top 10 (Web, API, LLM)
+│   │   └── last-updated.txt            # Knowledge freshness timestamp
 │   └── plugins/                         # Framework-specific security checks
 │       ├── README.md                    # Plugin format spec and instructions
 │       └── *.md                         # 16 plugins (Firebase, React, etc.)
@@ -72,6 +79,7 @@ All agents are `generalPurpose` subagents (need Bash, Read, Grep, Glob for code 
 - **Stage discipline**: Later stages depend on earlier findings; never start a stage early
 - **Trust model integration**: Recon Step 4 extracts the project's documented trust model (from SECURITY.md) and feeds it to all downstream agents, reducing false positives from findings that contradict documented trust assumptions
 - **External audit integration**: Recon detects openclaw and other external audit tool results; downstream agents cross-reference to avoid duplicating confirmed findings
+- **Knowledge grounding**: A KnowledgeRouter agent runs after recon, selects relevant OWASP cheat sheets and CWE entries for the project's stack, and produces per-agent `## {agent-name}` sections (same format as plugins). Each agent receives only the patterns relevant to its focus area via `{KNOWLEDGE_CHECKS}`. Findings must cite exact `file:section` from the knowledge base. Run `/security-analyst:update-knowledge` to populate and refresh
 - **Critic validation**: Adversarial review catches false positives before the final report
 
 ## Level of Detail (LOD) Architecture

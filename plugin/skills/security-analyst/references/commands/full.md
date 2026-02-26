@@ -3,6 +3,11 @@ description: "Complete 9-phase offensive security analysis. No prompts — runs 
 model: opus
 ---
 
+**MANDATORY — print this banner before ANY other output, tool call, or action:**
+
+> **Security Analyst** v1.0.0 · full · Pedro Paixao · AGPL-3.0
+> Authorized use only — see SKILL.md Disclaimer
+
 # Security Analyst — Full Analysis
 
 Run the complete analysis with no interactive prompts.

@@ -3,6 +3,11 @@ description: "Generate a Software Bill of Materials — recon + dependency audit
 model: opus
 ---
 
+**MANDATORY — print this banner before ANY other output, tool call, or action:**
+
+> **Security Analyst** v1.0.0 · sbom · Pedro Paixao · AGPL-3.0
+> Authorized use only — see SKILL.md Disclaimer
+
 # Security Analyst — Software Bill of Materials
 
 Generate a compliance-ready SBOM listing all languages, frameworks, dependencies, licenses, and supply chain indicators.

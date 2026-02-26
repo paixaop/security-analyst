@@ -10,6 +10,7 @@ SKILL_ROOT    = directory containing SKILL.md (.claude/skills/security-analyst o
 PROMPTS_DIR   = {SKILL_ROOT}/references/prompts
 TEMPLATES_DIR = {SKILL_ROOT}/assets/templates
 PLUGINS_DIR   = {SKILL_ROOT}/references/plugins
+KNOWLEDGE_DIR = {SKILL_ROOT}/references/knowledge
 RUN_DIR       = docs/security/runs/{YYYY-MM-DD-HHMMSS}
 FINDINGS_DIR  = {RUN_DIR}/findings
 RECON_DIR     = {RUN_DIR}/recon
@@ -60,6 +61,14 @@ In `{TEMPLATES_DIR}/`:
 | `checkpoint.md` | Orchestrator (stage tracking + resume) |
 
 ## Agent Registry
+
+### Knowledge Routing (post-recon, pre-surface)
+
+| Agent | Prompt | Purpose |
+|-------|--------|---------|
+| `knowledge-router` | `knowledge-router.md` | Selects and extracts relevant OWASP/CWE knowledge for the project's stack |
+
+Runs once after recon (after Step 3 skip decisions). Produces per-agent `## {agent-name}` sections — same format as plugins. The orchestrator extracts each section and injects it via the `{KNOWLEDGE_CHECKS}` placeholder (parallel to `{PLUGIN_CHECKS}`).
 
 ### Recon Stage
 
