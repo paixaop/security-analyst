@@ -25,7 +25,7 @@ git log --all --oneline --grep="inject" --grep="sanitiz" --grep="escap" --grep="
 ```
 
 For EACH security-related commit found:
-1. Read the full diff: `git show {commit_hash}`
+1. Read the diff: `git show {commit_hash} --stat` first to assess size. For large diffs (10+ files changed), use `git show {commit_hash} -- {specific_file}` to read only the security-relevant file changes rather than the full diff.
 2. Understand WHAT was fixed and WHY
 3. Identify the PATTERN that was fixed (not just the specific instance)
 

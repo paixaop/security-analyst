@@ -40,6 +40,7 @@ Think like a penetration tester doing initial reconnaissance. You're mapping the
 3. **No analysis** — Report facts, not vulnerabilities. Analysis comes in later phases
 4. **No project-specific assumptions** — Discover everything dynamically
 5. **Thorough** — Miss nothing in the primary source directories
+6. **Search only project source files** — Use `git ls-files` to enumerate tracked files and the Grep tool (which respects `.gitignore` automatically) for content searches. Never search broadly across `node_modules/`, `vendor/`, `dist/`, `build/`, or other gitignored directories. Restrict Grep to source directories (e.g., `path: "src/"`) or file types (e.g., `glob: "*.ts"`). See agent-common.md "File Exclusions" for details.
 
 ## Execution
 
@@ -54,6 +55,7 @@ The orchestrator creates tasks with these step descriptions. This section docume
 
 ### Step 1: Project Metadata
 
+- Run `git ls-files` to get a high-level view of tracked source files (use this throughout recon to avoid searching gitignored directories)
 - Glob for package.json, requirements.txt, Cargo.toml, go.mod, pom.xml, build.gradle, Gemfile
 - Read the primary package manifest to determine language, framework, runtime
 - Glob for firebase.json, serverless.yml, docker-compose.yml, Dockerfile, terraform files, CDK files
@@ -69,7 +71,7 @@ The orchestrator creates tasks with these step descriptions. This section docume
 
 ### Step 3: HTTP Entry Points
 
-- Grep for HTTP handler patterns by framework:
+- Grep for HTTP handler patterns by framework (Grep tool respects .gitignore; also restrict to source directories via `path` or `glob` parameters):
   - Express/Node: app.get, app.post, router.get, exports.
   - Next.js: export default function, export async function GET/POST/PUT/DELETE
   - Flask/Django: @app.route, @api_view, urlpatterns
@@ -92,8 +94,8 @@ The orchestrator creates tasks with these step descriptions. This section docume
 
 ### Step 5: Crown Jewels
 
-- Grep for credential storage: encrypt, decrypt, token, secret, password, key, credential, oauth
-- Grep for PII handling: email, phone, address, name, ssn, dob
+- Grep for credential storage (source dirs only): encrypt, decrypt, token, secret, password, key, credential, oauth
+- Grep for PII handling (source dirs only): email, phone, address, name, ssn, dob
 - Identify automated actions: sending emails, making payments, approving requests, modifying external state
 - Read encryption/KMS service files if found
 - Identify attacker profiles specific to this project (beyond the standard 5)
@@ -116,8 +118,8 @@ The orchestrator creates tasks with these step descriptions. This section docume
 
 ### Step 8: Encryption & Secrets
 
-- Grep for: encrypt, decrypt, hash, hmac, crypto, kms, key_ring, cipher
-- Glob for: .env*, *.env, secrets*, credentials*, *config*.json, *config*.yaml
+- Grep for (source dirs only): encrypt, decrypt, hash, hmac, crypto, kms, key_ring, cipher
+- Glob for (project root only, not inside node_modules/vendor): .env*, *.env, secrets*, credentials*, *config*.json, *config*.yaml
 - Check .gitignore for secret files
 - Search for hardcoded secrets: Grep for patterns like API_KEY=, SECRET=, PASSWORD=, token strings
 - Check secret management: Secret Manager, Vault, env vars, config files

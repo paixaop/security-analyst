@@ -1,7 +1,14 @@
 ---
 name: security-analyst
-description: "Use when the user wants a security audit, penetration test, threat model, vulnerability hunt, security fix plan, SBOM, compliance mapping, privacy assessment, or security posture comparison between runs."
-always: false
+description: "Comprehensive security analysis suite that identifies vulnerabilities across HTTP, auth, integrations, dependencies, infrastructure, and business logic through a multi-phase agent pipeline with exploit PoCs and remediation plans. Use when the user wants a security audit, penetration test, threat model, vulnerability hunt, security fix plan, SBOM, compliance mapping, privacy assessment, or security posture comparison between runs."
+license: AGPL-3.0
+compatibility: "Requires Claude Code, Cursor, or Codex with Task (subagent) support. Requires git. Benefits from npm audit, pip-audit, and govulncheck for dependency scanning."
+metadata:
+  author: Pedro Paixao
+  version: 1.0.0
+  category: security
+  tags: [security-audit, penetration-testing, threat-model, vulnerability-scanning, sbom, compliance]
+  documentation: https://github.com/paixaop/security-analyst
 ---
 
 # Security Analyst
@@ -110,6 +117,11 @@ Full runs write to `docs/security/runs/{YYYY-MM-DD-HHMMSS}/`:
 | `reports/compliance.md` | Compliance mapping (when requested) |
 | `reports/delta.md` | Delta between two runs (when requested) |
 | `reports/privacy.md` | Privacy & data protection assessment (when requested) |
+| `checkpoint.md` | Stage completion tracking (enables resume on failure) |
+
+### Checkpoint & Resume
+
+The orchestrator writes `checkpoint.md` after each stage completes. If a run is interrupted (session loss, timeout, error), re-running the same command reads the checkpoint, skips all completed stages, and resumes from the first incomplete stage. All on-disk data from completed stages (recon index, findings, reports) is preserved and reused. No work is repeated. See the [Troubleshooting](#troubleshooting) section for details.
 
 ## Command Details
 
@@ -210,12 +222,60 @@ Generates an implementation plan from an existing security report. Auto-detects 
 /security-analyst:fix-plan docs/security/runs/2025-06-15-143022
 ```
 
+## Examples
+
+**Example 1: Full security audit before production deploy**
+
+User says: "Run a full security audit on this project"
+
+Actions:
+1. Spawns 14 recon agents in parallel to map the codebase
+2. Spawns up to 16 attack surface, git history, dependency, and config agents
+3. Runs business logic, data flow tracing, exploit development, and critic validation
+4. Assembles final report with remediation roadmap
+
+Result: Complete security report in `docs/security/runs/{timestamp}/reports/final.md` with CVSS-scored findings, PoCs, and a prioritized fix plan.
+
+**Example 2: Targeted analysis of a single component**
+
+User says: "Check the authentication system for vulnerabilities"
+
+Actions:
+1. Runs recon scoped to auth-related files
+2. Spawns 3-6 agents focused on auth bypass, session handling, and privilege escalation
+3. Presents findings inline
+
+Result: Focused findings with exploit steps and fix code, delivered inline without a full run directory.
+
+**Example 3: Compliance prep after a security run**
+
+User says: "Map findings to SOC 2 controls"
+
+Actions:
+1. Reads the most recent security run from `docs/security/runs/`
+2. Evaluates each SOC 2 control as Pass/Partial/Fail/N/A
+3. Produces a compliance score and gap analysis
+
+Result: Compliance report in `reports/compliance.md` with control-level status and remediation guidance.
+
+**Example 4: Tracking security posture over time**
+
+User says: "Compare the last two security runs"
+
+Actions:
+1. Auto-detects the two most recent runs in `docs/security/runs/`
+2. Diffs findings: new, resolved, persistent, changed severity
+3. Tracks dependency and attack surface changes
+
+Result: Delta report showing security posture improvements and regressions.
+
 ## Architecture
 
 For detailed architecture reference (directory structure, agent design, LOD architecture, customization), see [references/architecture.md](references/architecture.md). For all constants (paths, filenames, agent registry, placeholders), see [references/constants.md](references/constants.md). **For platform-specific tool mapping (Cursor vs Claude Code vs Codex) and hang prevention, see [references/platform-tools.md](references/platform-tools.md).**
 
 **Key concepts:**
 - **LOD system**: Three-tier Level of Detail (LOD-0/1/2) saves 80-96% of prompt tokens for downstream agents while preserving full detail on disk
+- **Large codebase handling**: Automatic work partitioning, PARTIAL return protocol, targeted line-range reads, stage-based dispatching (each stage gets a fresh context window), and checkpoint/resume for interrupted runs. See [references/architecture.md](references/architecture.md)
 - **Group discipline**: Later groups depend on earlier findings; never start a group early
 - **Dynamic scoping**: Recon determines which agents to skip
 - **Framework plugins**: 16 auto-detected plugins inject framework-specific checks into agent prompts. See [references/plugins/README.md](references/plugins/README.md)
@@ -361,6 +421,12 @@ The skill sets `always: false` in its frontmatter. It only activates when the us
 **MCP or subagent connection fails during analysis**
 - Verify the environment supports subagent spawning (Claude Code Task tool, Cursor Task tool)
 - Check that the project being analyzed is the current workspace so recon agents can Read/Glob the codebase
+
+**Analysis interrupted or session lost mid-run**
+- Every full run writes a `checkpoint.md` file to the run directory tracking which stages completed, which are in-progress, and which are still pending.
+- To resume: re-run `/security-analyst:full` — the orchestrator reads `checkpoint.md`, skips completed stages, and continues from the first `pending` or `in-progress` stage. All completed stage data (recon index, findings, reports) is already on disk, so no work is repeated.
+- If the checkpoint shows a stage as `in-progress` (partially completed), the orchestrator re-runs that stage from scratch since partial outputs may be incomplete, then continues normally.
+- The checkpoint also preserves configuration (skipped agents, matched plugins, partition data, critical data flows) so the resumed run uses the same scoping decisions as the original.
 
 **Findings seem generic or lack concrete exploits**
 - The skill expects findings to include attack steps and PoC. If outputs are shallow, re-run with a focused scope (e.g., `/security-analyst:focused authentication`) for deeper analysis

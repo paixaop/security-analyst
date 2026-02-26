@@ -123,6 +123,7 @@ Full runs write to `docs/security/runs/{YYYY-MM-DD-HHMMSS}/`. To change the outp
 | `reports/compliance.md` | Compliance mapping (when requested) |
 | `reports/delta.md` | Delta between runs (when requested) |
 | `reports/privacy.md` | Privacy assessment (when requested) |
+| `checkpoint.md` | Stage completion tracking (enables resume) |
 
 ### Recon (`recon/`)
 
@@ -153,8 +154,39 @@ Exploits (1) → Validation (1 critic) → Reporting (1) → Remediation (1 fix 
 ```
 
 - **LOD system**: Three tiers reduce prompt tokens while keeping full detail on disk
+- **Large codebase handling**: Six mechanisms prevent context exhaustion (see below)
 - **Framework plugins**: 16 auto-detected plugins (Firebase, React, Django, etc.) inject framework-specific checks
 - **Critic validation**: Adversarial review before final report
+
+## Large Codebase Handling
+
+A full analysis spawns 28+ agents that read source code, grep for patterns, and accumulate findings. On large codebases (hundreds of endpoints, dozens of integrations), individual agents and the orchestrator itself can exhaust their context windows. Six mechanisms prevent this:
+
+### 1. File exclusions (.gitignore + hardcoded list)
+
+All agents respect `.gitignore` automatically — the Grep tool uses ripgrep which skips gitignored paths by default. Agents also use `git ls-files` to enumerate tracked source files instead of broad glob patterns. An additional hardcoded list in `agent-common.md` excludes minified files, source maps, test snapshots, generated code, and lockfiles from broad searches. This prevents a single unscoped grep from pulling `node_modules/` into an agent's context.
+
+### 2. Targeted reads (line ranges, not whole files)
+
+Instead of reading entire source files, agents read ~60 lines centered on the `file:line` reference from recon step files. A 2000-line file read in full uses ~20x more context than the ~100-line function body the agent actually needs. Agents expand incrementally in 30-line steps only if they need more context to trace a specific code path.
+
+### 3. Work partitioning (orchestrator-level chunking)
+
+After recon, the orchestrator counts targets per agent (endpoints, integrations, rule files, findings). When a count exceeds the agent's threshold (e.g., 25 endpoints for the HTTP agent), the work is split into chunks and multiple instances of the same agent run in parallel, each covering a subset. Finding ID offsets prevent collisions. See `references/constants.md` for per-agent thresholds.
+
+### 4. PARTIAL return protocol (agent-level safety valve)
+
+Any agent can return early with `PARTIAL` status when approaching its context budget. The agent writes all findings discovered so far to disk and returns a structured list of remaining targets. The orchestrator spawns a continuation agent for the remaining work and merges the results. This catches cases where pre-chunking underestimates context usage.
+
+### 5. Stage-based dispatching (fresh context per stage)
+
+Each analysis stage (surface, logic, tracing, exploits, validation, reporting, remediation) runs inside its own **stage-orchestrator Task** — a subagent with a fresh context window. The stage orchestrator reads prompt templates from disk, spawns its analysis agents, consolidates findings, writes the stage report, and returns a compact summary. The top-level orchestrator stays under ~20K tokens instead of accumulating ~100K+ from all stages.
+
+### 6. Checkpoint and resume
+
+A checkpoint file (`checkpoint.md`) is written to the run directory after each stage completes, recording stage status, configuration (skipped agents, matched plugins, partition data), and paths. If the orchestrator is interrupted — by context exhaustion, user abort, or error — a new session can resume from the checkpoint without re-running completed stages.
+
+**On small/medium codebases** (under chunking thresholds), these mechanisms add no overhead. The system runs exactly as it would without them — single agent instances, no chunking, no PARTIAL returns.
 
 ## Project Structure
 

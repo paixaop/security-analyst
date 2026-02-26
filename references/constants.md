@@ -14,6 +14,7 @@ RUN_DIR       = docs/security/runs/{YYYY-MM-DD-HHMMSS}
 FINDINGS_DIR  = {RUN_DIR}/findings
 RECON_DIR     = {RUN_DIR}/recon
 REPORTS_DIR   = {RUN_DIR}/reports
+CHECKPOINT    = {RUN_DIR}/checkpoint.md
 ```
 
 Timestamp `YYYY-MM-DD-HHMMSS` is set once at run start.
@@ -55,6 +56,7 @@ In `{TEMPLATES_DIR}/`:
 | `compliance-report.md` | Orchestrator |
 | `delta-report.md` | Orchestrator |
 | `privacy-report.md` | Privacy agent |
+| `checkpoint.md` | Orchestrator (stage tracking + resume) |
 
 ## Agent Registry
 
@@ -107,6 +109,22 @@ In `{TEMPLATES_DIR}/`:
 | `threat-model` | `threat-model-agent.md` | `TM` |
 
 Incidental findings use `IX-{AGENT_PREFIX}` prefix.
+
+## Chunking Thresholds
+
+When the orchestrator counts targets from recon data and the count exceeds a threshold, the work is split into multiple parallel agent instances. Each instance gets the same prompt but a different target subset. The PARTIAL return protocol (see `agent-common.md`) provides an additional safety valve for any agent.
+
+| Agent | Target Source | Threshold | Split By |
+|-------|--------------|-----------|----------|
+| `surface-http` | step-03-http.md endpoint rows | 25 | Endpoint list |
+| `surface-authz` | step-06-auth.md rule file count | 20 | Rule file list |
+| `surface-integrations` | step-07-integrations.md rows | 15 | Integration list |
+| `surface-frontend` | step-12-frontend.md rendering points | 20 | Component list |
+| `history-*` | `git log` commit count | 40 | Commit list |
+| `exploit-dev` | finding count (Medium+) | 25 | Finding list |
+| `finding-critic` | finding count (Medium+) | 25 | Finding list |
+
+Agents below threshold run as a single instance (no chunking). Finding ID offsets for chunked agents: batch 1 starts at `{PREFIX}-001`, batch 2 at `{PREFIX}-100`, batch 3 at `{PREFIX}-200`, etc.
 
 ## Stages
 

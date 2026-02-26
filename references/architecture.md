@@ -36,7 +36,7 @@ security-analyst/
 │       ├── README.md                    # Plugin format spec and instructions
 │       └── *.md                         # 16 plugins (Firebase, React, etc.)
 └── assets/
-    └── templates/                       # Output format templates (10 files)
+    └── templates/                       # Output format templates (11 files)
         ├── recon-report.md              # Recon LOD format definitions
         ├── finding.md                   # Individual finding format
         ├── agent-common.md              # Shared LOD output + incidental findings
@@ -46,7 +46,8 @@ security-analyst/
         ├── sbom-report.md               # Software Bill of Materials
         ├── compliance-report.md         # Compliance framework mapping
         ├── delta-report.md              # Delta report between runs
-        └── privacy-report.md            # Privacy & data protection assessment
+        ├── privacy-report.md            # Privacy & data protection assessment
+        └── checkpoint.md               # Stage tracking + resume checkpoint
 ```
 
 ## Agent Design
@@ -109,12 +110,78 @@ The recon report uses the same LOD architecture as findings:
 
 All platforms use agents-only orchestration (no Teams). Agents are spawned via the Task tool with self-contained prompts and return results via the Task return value. On **Claude Code / Codex**, TaskCreate/TaskUpdate provide user-visible progress tracking — the orchestrator creates tasks before spawning and marks them completed after each agent returns. On **Cursor**, task tracking is not available (no TaskCreate/TaskList). See `references/platform-tools.md`.
 
-## Context Budget Considerations
+### Orchestrator Architecture
 
-The LOD architecture mitigates most context pressure, but be aware:
+The top-level orchestrator is a **thin dispatcher** — it creates the run directory, analyzes the recon output, and dispatches each stage as a stage-orchestrator Task. Each stage-orchestrator is a `generalPurpose` subagent that reads prompt templates from disk, spawns analysis agents (sub-subagents), consolidates findings, and returns a compact summary. This gives each stage a fresh context window and keeps the top-level orchestrator under ~20K tokens. A checkpoint file on disk enables resuming interrupted runs.
+
+## Large Codebase Handling
+
+The LOD architecture mitigates context pressure *between* agents (80-96% token savings), but individual agents can still exhaust their context window when a codebase has many targets (endpoints, integrations, rule files, findings). Three mechanisms address this:
+
+### 1. Orchestrator-Level Work Partitioning (primary)
+
+After recon, the orchestrator counts targets per agent from the recon step files (Step 3.2 in the orchestrator). When a count exceeds the agent's threshold (see `constants.md` → "Chunking Thresholds"), the work is split into chunks and multiple instances of the same agent are spawned in parallel.
+
+Each chunk gets the same prompt template with an appended `TARGET SUBSET` section containing only its assigned target rows. Finding ID offsets prevent collisions: batch 1 starts at `{PREFIX}-001`, batch 2 at `{PREFIX}-100`, etc.
+
+Agents that support chunking (have enumerable targets):
+- `surface-http` (endpoints from step-03)
+- `surface-authz` (rule files from step-06)
+- `surface-integrations` (integrations from step-07)
+- `surface-frontend` (rendering points from step-12)
+- `history-*` (commits from git log)
+- `exploit-dev` (findings from index)
+- `finding-critic` (findings from index)
+
+Agents that do NOT chunk (holistic analysis required):
+- `surface-llm` (cross-cutting OWASP LLM categories)
+- `logic-*` (cross-cutting business logic)
+- `report-writer` (global dedup + root cause)
+- Recon agents (grep-based enumeration, not deep analysis per item)
+
+### 2. PARTIAL Return Protocol (safety valve)
+
+Any agent can return with `PARTIAL` status when approaching its context budget. The agent writes all findings discovered so far to disk and returns a structured message listing remaining targets. The orchestrator then spawns a continuation agent for the remaining work.
+
+This catches cases where pre-chunking underestimates context usage (e.g., individual source files are unusually large). See `agent-common.md` for the protocol format and heuristics.
+
+### 3. Targeted Reading
+
+All agents are instructed to read ~60 lines centered on the `file:line` reference from recon step files instead of reading entire source files. This prevents large files (1000+ lines) from consuming 10-20x more context than the ~100-line function body the agent actually needs. Git history agents use `git show --stat` to assess diff size before reading, and read per-file diffs for large commits.
+
+### 4. Stage-Based Dispatching (orchestrator context management)
+
+The orchestrator coordinates 28+ agents across 8 stages. Without mitigation, its own context accumulates ~100K+ tokens from reading prompt templates, Task call prompts/returns, and inter-stage reasoning.
+
+**Solution:** Each stage runs inside its own **stage-orchestrator Task** — a `generalPurpose` subagent with a fresh context window. The stage-orchestrator reads templates from disk, spawns its agents (sub-subagents), consolidates findings, writes the stage report, and returns a compact summary (~200 tokens).
+
+**Top-level orchestrator context budget:**
+- Orchestrator prompt: ~3K tokens
+- 8 stage Task calls × ~300 tokens each (compact prompt-in + summary-out): ~2.5K tokens
+- Step 3 recon analysis (reads recon index + step files): ~5K tokens
+- Own reasoning: ~5K tokens
+- **Total: ~15-20K tokens** (vs ~100K+ without dispatching)
+
+**Stage-orchestrator context budget (per stage):**
+- Stage prompt: ~1K tokens
+- Template reads: ~3-5K tokens
+- Agent Task calls (prompt + LOD-0 return): ~2K per agent
+- Consolidation reasoning: ~2K tokens
+- **Total: ~15-30K tokens** depending on agent count
+
+### 5. Checkpoint & Resume
+
+A checkpoint file (`{RUN_DIR}/checkpoint.md`) tracks stage completion, configuration (skipped agents, plugins, partitions), and paths. Updated after each stage. If the orchestrator is interrupted, a new session reads the checkpoint and resumes from the first incomplete stage without re-running completed work.
+
+### 6. File Exclusions
+
+All agents inherit file exclusion rules from `agent-common.md`. The primary mechanism is **respecting `.gitignore`**: agents use `git ls-files` to enumerate tracked files and the Grep tool (which uses ripgrep, which respects `.gitignore` by default) for content searches. This automatically excludes `node_modules/`, `vendor/`, `dist/`, `build/`, `.next/`, `__pycache__/`, and any other project-specific ignores. Agents also restrict searches to source directories or file types rather than searching the project root broadly. The `dependency-audit` agent is the only exception — it intentionally reads package metadata from `node_modules/`.
+
+### Context Budget Notes
+
 - The LLM agent prompt (`attack-surface-llm.md`) is ~340 lines before plugin injection — the largest single prompt
-- Terminal agents (exploit dev, critic, report writer) still read all LOD-2 files via tool calls; for runs with 40+ findings, consider batching reads
 - Plugin sections add to every injected agent's context — keep plugins concise
+- For small/medium codebases (under chunking thresholds), the system runs exactly as before with no overhead
 
 ## Adding New Agents
 

@@ -20,7 +20,7 @@ You are an attacker probing every HTTP endpoint. For each endpoint, ask: "What h
 
 ### For EACH unauthenticated endpoint:
 
-1. **Read the source file** at the path listed in the recon step files
+1. **Read the handler code** using the file:line reference from the recon step files. Read ~60 lines centered on the referenced line (30 before, 30 after) — do not read the entire file unless it is under ~100 lines. Expand incrementally only if you need to trace a specific import or utility.
 2. **Input validation**: Trace every input parameter (body, query, headers, path params)
    - Is the input validated before use? Schema validation? Type checking?
    - What happens with unexpected types, missing fields, extra fields?
@@ -38,7 +38,7 @@ You are an attacker probing every HTTP endpoint. For each endpoint, ask: "What h
 
 ### For EACH authenticated endpoint:
 
-1. **Read the source file** at the path listed in the recon step files
+1. **Read the handler code** using the file:line reference from the recon step files (~60 lines centered on the reference point).
 2. **Authentication verification**: How is the caller authenticated?
    - Is the auth token validated correctly? Can it be forged?
    - Is the auth check the FIRST thing that happens? Can processing occur before auth?
@@ -55,7 +55,7 @@ You are an attacker probing every HTTP endpoint. For each endpoint, ask: "What h
 
 ### For EACH background/scheduled function:
 
-1. **Read the source file** at the path listed in the recon step files
+1. **Read the handler code** using the file:line reference from the recon step files (~60 lines centered on the reference point).
 2. **Trigger authentication**: How is the trigger authenticated?
    - Cloud Tasks: Is the OIDC/service account token verified?
    - Scheduled: Can the schedule be triggered externally?

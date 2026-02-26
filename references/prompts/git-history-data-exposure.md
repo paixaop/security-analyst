@@ -25,14 +25,14 @@ git log --all --oneline --grep="leak" --grep="expos" --grep="strip" --grep="reda
 ```
 
 For EACH data exposure fix:
-1. Read the full diff
+1. Read the diff: `git show {commit_hash} --stat` first to assess size. For large diffs (10+ files changed), use `git show {commit_hash} -- {specific_file}` to read only the security-relevant file changes rather than the full diff.
 2. Understand what data was being leaked and through what channel
 3. Check if ALL similar channels were fixed
 
 ### Task 2: Error Response Analysis
 
 For EACH HTTP endpoint/function in `step-03-http.md`:
-1. Read the error handling code (catch blocks, error middleware)
+1. Read the error handling code using the file:line reference from the recon step file (~60 lines centered on the handler, focusing on catch blocks and error middleware)
 2. Check: does the error response include stack traces, file paths, or internal details?
 3. Do different error types reveal different information? (e.g., "user not found" vs "invalid credentials" vs generic "error")
 4. Are error messages from external APIs forwarded to the user?

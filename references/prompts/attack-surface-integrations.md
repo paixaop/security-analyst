@@ -20,7 +20,7 @@ You are an attacker who controls an external API's responses, or who can manipul
 
 ### For EACH external integration in `step-07-integrations.md`:
 
-1. **Read the client/service file** at the path listed
+1. **Read the client/service code** using the file:line reference from the recon step file. Read ~60 lines centered on the reference point — do not read the entire file unless it is under ~100 lines. Expand incrementally to trace specific call sites or utility functions.
 
 2. **Query/Command Injection**:
    - Does user-controlled input reach API query parameters?

@@ -25,7 +25,7 @@ git log --all --oneline --grep="SSRF" --grep="redirect" --grep="fetch" --grep="U
 ```
 
 For EACH SSRF-related commit:
-1. Read the full diff
+1. Read the diff: `git show {commit_hash} --stat` first to assess size. For large diffs (10+ files changed), use `git show {commit_hash} -- {specific_file}` to read only the security-relevant file changes rather than the full diff.
 2. Understand the protection mechanism (URL allowlist, domain check, safe fetch wrapper)
 3. Check if the protection is comprehensive
 

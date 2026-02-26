@@ -25,7 +25,7 @@ git log --all --oneline --grep="auth" --grep="bypass" --grep="nonce" --grep="sta
 ```
 
 For EACH auth-related commit:
-1. Read the full diff: `git show {commit_hash}`
+1. Read the diff: `git show {commit_hash} --stat` first to assess size. For large diffs (10+ files changed), use `git show {commit_hash} -- {specific_file}` to read only the security-relevant file changes rather than the full diff.
 2. Understand the auth flaw that was fixed
 3. Identify WHERE ELSE the same pattern might exist
 

@@ -22,7 +22,7 @@ You are an attacker targeting users through their browsers. You want to: inject 
 
 ### Task 1: XSS (Cross-Site Scripting)
 
-- Identify every component that renders user-controlled or external data
+- Identify every component that renders user-controlled or external data (use Grep to find patterns, then read targeted line ranges — ~60 lines centered on each rendering point)
 - For EACH rendering point:
   - Is the data escaped/sanitized before rendering?
   - Does the framework auto-escape? (React JSX does, but `dangerouslySetInnerHTML` doesn't)

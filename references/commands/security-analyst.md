@@ -35,6 +35,92 @@ All platforms use the same agents-only flow. No TeamCreate, TeamDelete, or SendM
 - **Cursor:** Skip TaskCreate/TaskUpdate — they don't exist.
 - Batch all independent Task calls in a single message for maximum parallelism.
 
+## Stage-Based Dispatching
+
+To prevent the orchestrator from exhausting its own context window during a full run (28+ agents across 8 stages), each stage runs inside its own **stage-orchestrator Task** with a fresh context window. The top-level orchestrator becomes a thin dispatcher:
+
+1. Creates the run directory and initial checkpoint
+2. Dispatches each stage as a Task (subagent_type: `generalPurpose`)
+3. Receives a compact summary from each stage-orchestrator
+4. Updates the checkpoint after each stage completes
+5. Presents the final summary to the user
+
+**Stage-orchestrator prompt format** — each stage Task gets a self-contained prompt containing:
+
+```
+You are a stage orchestrator for the {STAGE_NAME} stage of a security analysis.
+
+## Paths
+SKILL_ROOT: {path}
+PROMPTS_DIR: {path}
+TEMPLATES_DIR: {path}
+RUN_DIR: {path}
+FINDINGS_DIR: {path}
+RECON_DIR: {path}
+REPORTS_DIR: {path}
+
+## Agents to Spawn
+| Agent | Prompt File | Prefix | Condition |
+[table of agents for this stage, with skip/spawn decisions already made]
+
+## Partition Data
+[chunk assignments if any, or "None"]
+
+## Plugin Sections
+[pre-extracted plugin sections for agents in this stage, or "None"]
+
+## Prior Findings
+Read {FINDINGS_DIR}/index.md for findings from prior stages.
+[or "None — this is the first analysis stage" for the surface stage]
+
+## Instructions
+1. Read {TEMPLATES_DIR}/finding.md and {TEMPLATES_DIR}/agent-common.md
+2. For each non-skipped agent: Read its prompt from {PROMPTS_DIR}/{file}
+3. Replace all placeholders (see Placeholder Values below)
+4. Append agent-common.md content to each agent prompt
+5. For chunked agents: create N prompts with TARGET SUBSET sections
+6. Spawn ALL agents in parallel via Task (subagent_type: generalPurpose)
+7. Collect LOD-0 returns, handle PARTIAL returns by spawning continuations
+8. Deduplicate findings, build/update {FINDINGS_DIR}/index.md
+9. Write stage report to {REPORTS_DIR}/{stage}.md
+10. Return ONLY the compact summary below
+
+## Placeholder Values
+{RECON_INDEX_PATH}: {path}
+{RECON_DIR}: {path}
+{FINDING_TEMPLATE_PATH}: {path}
+{FINDINGS_DIR}: {path}
+{PRIOR_FINDINGS_SUMMARY}: [LOD-0 table or "None"]
+{PLUGIN_CHECKS}: [per-agent plugin sections]
+
+## Consolidation Rules
+[inline: dedup, PARTIAL handling, index building — from "Consolidation Between Stages"]
+
+## Return Format
+Return ONLY:
+  ## Stage: {STAGE_NAME}
+  **Agents spawned:** N (M skipped)
+  **Findings:** N (Critical: X, High: Y, Medium: Z, Low: W, Info: V)
+  **PARTIAL returns handled:** N
+  **Incidental findings:** N
+  **Stage report:** {REPORTS_DIR}/{stage}.md
+```
+
+**What stays in the top-level orchestrator:**
+- Step 1 (run directory creation)
+- Step 3 (recon analysis, partitioning, plugin detection) — this determines the configuration for all downstream stages, so it must run at the top level
+- Checkpoint management
+- The final summary to the user
+
+**What moves into stage-orchestrator Tasks:**
+- Reading prompt templates (fresh read each stage — no accumulation)
+- Constructing agent prompts (prompt construction logic)
+- Spawning agents (Task calls from within the stage-orchestrator)
+- Consolidation (dedup, PARTIAL handling, index building)
+- Writing stage reports
+
+This reduces the top-level orchestrator's context from ~100K+ tokens to ~20-30K tokens.
+
 ## Initial Setup
 
 Ask the user to select the analysis scope:
@@ -70,6 +156,7 @@ RECON_DIR          = {RUN_DIR}/recon
 REPORTS_DIR        = {RUN_DIR}/reports
 RECON_INDEX        = {RECON_DIR}/index.md
 FINAL_REPORT       = {REPORTS_DIR}/final.md
+CHECKPOINT         = {RUN_DIR}/checkpoint.md
 FINDING_TEMPLATE   = {TEMPLATES_DIR}/finding.md
 GROUP_REPORT_TEMPLATE = {TEMPLATES_DIR}/group-report.md
 FIX_PLAN_TEMPLATE  = {TEMPLATES_DIR}/fix-plan.md
@@ -86,7 +173,11 @@ Bash: mkdir -p {RUN_DIR} {FINDINGS_DIR} {RECON_DIR} {REPORTS_DIR}
 
 The `{YYYY-MM-DD-HHMMSS}` timestamp is set ONCE at the start of the run and reused throughout.
 
+Write the initial checkpoint: Read `{TEMPLATES_DIR}/checkpoint.md`, populate the run paths and set all stages to `pending`, write to `{CHECKPOINT}`.
+
 ### Step 2: RECON STAGE — Reconnaissance (parallel, two waves)
+
+> **Dispatch as stage-orchestrator Task.** Spawn this entire stage as a single `generalPurpose` Task with a fresh context window. The stage-orchestrator prompt includes the recon agent instructions below, paths, and the two-wave spawning pattern. After it returns, update `{CHECKPOINT}` (recon → `completed`).
 
 The recon phase runs as parallel agents, each handling one discovery step. Each agent gets a self-contained prompt with step instructions, output path, and "Return your LOD-0 + LOD-1 summary in your final response." The Task tool blocks until done — collect summaries from return values.
 
@@ -193,6 +284,38 @@ Read `{RECON_DIR}/index.md` and selectively read relevant step files to determin
 
 **Claude Code / Codex:** Create tasks with TaskCreate for tracking progress. **Cursor:** Skip task creation (no TaskCreate).
 
+### Step 3.2: Target Counting & Work Partitioning
+
+For large codebases, individual agents may exhaust their context window before completing analysis. The orchestrator prevents this by **pre-splitting work** into chunks when target counts exceed thresholds (see `references/constants.md` → "Chunking Thresholds").
+
+**Count targets from recon data:**
+
+1. Read `{RECON_DIR}/step-03-http.md` — count total endpoint rows across all three tables (unauthenticated + authenticated + background)
+2. Read `{RECON_DIR}/step-06-auth.md` — count authorization rule file references
+3. Read `{RECON_DIR}/step-07-integrations.md` — count integration rows
+4. Read `{RECON_DIR}/step-12-frontend.md` — count rendering points / component references
+
+**Partition if above threshold:**
+
+For each agent where the target count exceeds its threshold:
+
+1. Split the target list into chunks of (threshold) items each
+2. Record the chunk assignments: which targets go to which batch
+3. Copy the relevant rows from the recon step file for each chunk
+4. Assign finding ID offsets: batch 1 starts at `{PREFIX}-001`, batch 2 at `{PREFIX}-100`, batch 3 at `{PREFIX}-200`
+
+**Example — 70 HTTP endpoints:**
+- Threshold for `surface-http` is 25
+- Split into 3 chunks: endpoints 1-25 (batch 1), 26-50 (batch 2), 51-70 (batch 3)
+- Batch 1: `HTTP-001` through `HTTP-099`
+- Batch 2: `HTTP-100` through `HTTP-199`
+- Batch 3: `HTTP-200` through `HTTP-299`
+- Spawn 3 `surface-http` agents in parallel, each with its subset
+
+**If no agents exceed thresholds:** Skip partitioning entirely. Small/medium codebases run exactly as before with a single instance per agent.
+
+**Store partition data** for use in Step 4 (surface stage spawning) and later stages. The partition data is a map: `agent-id → [list of {batch_number, target_rows, id_offset}]`.
+
 ### Step 3.5: Plugin Detection
 
 After analyzing the recon index, detect which framework-specific plugins apply to this project:
@@ -209,7 +332,20 @@ After analyzing the recon index, detect which framework-specific plugins apply t
 
 The matched plugin sections are injected into agent prompts via the `{PLUGIN_CHECKS}` placeholder during agent spawning.
 
+### Step 3.6: Write Stage Configuration
+
+Write the analysis configuration to `{CHECKPOINT}` so stage orchestrators (and any resume session) can read it:
+- Update recon status to `completed`
+- Record skipped agents list
+- Record matched plugins and their per-agent sections
+- Record partition data (agent → chunks map)
+- Record critical data flows (for tracing stage)
+
+This is the **last step that runs in the top-level orchestrator's context before dispatching stages**. All subsequent stages are dispatched as stage-orchestrator Tasks.
+
 ### Step 4: SURFACE STAGE — Phases 1, 2, 5, 6 (parallel)
+
+> **Dispatch as stage-orchestrator Task.** Construct the stage-orchestrator prompt (see "Stage-Based Dispatching") with the surface agent table, partition data, plugin sections, and placeholder values from `{CHECKPOINT}`. Spawn as a single `generalPurpose` Task. After it returns, update `{CHECKPOINT}` (surface → `completed`, record finding count).
 
 These phases are independent and can run simultaneously.
 
@@ -295,6 +431,8 @@ Delete tasks for skipped agents (status: deleted).
 
 Issue all Task tool calls in one message. Each agent gets a self-contained prompt, writes findings to `{FINDINGS_DIR}/`, and returns LOD-0 summary in its response. Batch all spawns into ONE message.
 
+**Chunked agents:** If Step 3.2 produced partition data for an agent, spawn N instances instead of 1. Each instance gets the same prompt template but with an appended `TARGET SUBSET` section containing only its assigned target rows from the recon step file, plus a modified finding ID line specifying the offset (e.g., `Finding IDs: Use prefix HTTP-XXX starting from HTTP-101`). Name chunked agents as `{agent-id}-batch-{N}` (e.g., `surface-http-batch-1`, `surface-http-batch-2`).
+
 **Wait:** Each Task call returns when done.
 Verify expected output: confirm finding files were written to `{FINDINGS_DIR}/`.
 Collect LOD-0 summaries from Task return values. Consolidate and deduplicate.
@@ -309,6 +447,8 @@ Write surface stage findings to `{REPORTS_DIR}/surface.md` using `{GROUP_REPORT_
 
 
 ### Step 4.5 + Step 5: SBOM Assembly + LOGIC STAGE (parallel)
+
+> **Dispatch both as parallel stage-orchestrator Tasks.** Spawn SBOM assembly and the logic stage as two parallel Tasks. After both return, update `{CHECKPOINT}` (sbom → `completed`, logic → `completed`).
 
 SBOM assembly and the logic stage are independent — run them concurrently. The logic stage needs surface stage findings but NOT the SBOM. The SBOM needs surface stage data but NOT logic stage findings.
 
@@ -376,6 +516,8 @@ Write logic stage findings to `{REPORTS_DIR}/logic.md` using `{GROUP_REPORT_TEMP
 
 ### Step 6: TRACING STAGE — Phase 4 (data flow tracing, needs surface and logic)
 
+> **Dispatch as stage-orchestrator Task.** After it returns, update `{CHECKPOINT}` (tracing → `completed`).
+
 Spawn flow tracers based on `{RECON_DIR}/step-09-data-flows.md`.
 
 Create tasks for each critical data flow (up to 4):
@@ -402,20 +544,25 @@ Write tracing stage findings to `{REPORTS_DIR}/tracing.md` using `{GROUP_REPORT_
 
 ### Step 7: EXPLOITS STAGE — Phase 7 (exploit development, needs all findings)
 
+> **Dispatch as stage-orchestrator Task.** After it returns, update `{CHECKPOINT}` (exploits → `completed`).
+
+Count Medium+ findings from the findings index. If the count exceeds the `exploit-dev` threshold (25), split the finding list into chunks and spawn multiple parallel agents. Otherwise spawn a single agent.
+
 ```
 TaskCreate: subject="Exploits: Exploit development", activeForm="Developing exploits",
   description="[exploit-developer prompt with ALL_FINDINGS replaced]"
 ```
 
-Spawn a single agent:
+Spawn agent(s):
 - `exploit-dev` — `{PROMPTS_DIR}/exploit-developer.md`
 - `{ALL_FINDINGS}` → consolidated findings from the surface through tracing stages (Medium+ only)
+- **If chunked:** each batch gets a `TARGET SUBSET` section listing only its assigned finding IDs from the LOD-1 index. Each batch reads only its assigned LOD-2 files.
 
 Agent executes, writes findings, returns catalog in its response.
 
-**Wait:** Task call returns when done.
+**Wait:** Task call(s) return when done. Handle PARTIAL returns if any (see "Consolidation Between Stages").
 Verify expected output: confirm exploit catalog was written to `{FINDINGS_DIR}/`.
-Collect exploit catalog from Task return value. **Claude Code / Codex:** Mark task completed via TaskUpdate.
+Collect exploit catalog from Task return value(s). **Claude Code / Codex:** Mark task(s) completed via TaskUpdate.
 
 Write exploits stage findings to `{REPORTS_DIR}/exploits.md` using `{GROUP_REPORT_TEMPLATE}`:
 - `{GROUP_NAME}` → "Exploits: Exploit Development"
@@ -424,7 +571,9 @@ Write exploits stage findings to `{REPORTS_DIR}/exploits.md` using `{GROUP_REPOR
 
 ### Step 7.5: VALIDATION STAGE — Finding Validation (Critic)
 
-The critic agent adversarially reviews ALL findings from exploit development.
+> **Dispatch as stage-orchestrator Task.** After it returns, update `{CHECKPOINT}` (validation → `completed`).
+
+The critic agent adversarially reviews ALL findings from exploit development. Count Medium+ findings — if the count exceeds the `finding-critic` threshold (25), split into chunks and spawn multiple parallel critic agents. Otherwise spawn a single agent.
 
 ```
 TaskCreate: subject="Validation: Finding validation", activeForm="Validating findings",
@@ -432,21 +581,21 @@ TaskCreate: subject="Validation: Finding validation", activeForm="Validating fin
 ```
 
 1. Read `{PROMPTS_DIR}/finding-critic.md`
-2. Spawn agent via Task tool:
-   - name: "finding-critic"
+2. Spawn agent(s) via Task tool:
+   - name: "finding-critic" (or "finding-critic-batch-N" if chunked)
    - subagent_type: "generalPurpose"
    - prompt: Content of finding-critic.md with placeholders + "Return validated findings in your response."
      - `{RECON_INDEX_PATH}` → absolute path to recon index
      - `{RECON_DIR}` → absolute path to recon directory
-     - `{ALL_FINDINGS}` → complete exploit catalog from the exploits stage
+     - `{ALL_FINDINGS}` → complete exploit catalog from the exploits stage (if chunked, each batch gets the full LOD-0 index for cross-reference context, but a `TARGET SUBSET` specifying which finding IDs to validate in depth)
      - `{FINDING_TEMPLATE_PATH}` → absolute path to finding template
-3. **Wait:** Task call returns when done
-4. Process critic results:
+3. **Wait:** Task call(s) return when done. Handle PARTIAL returns if any.
+4. Process critic results (merged across all batches/continuations):
    - Remove findings marked REMOVED
    - Update severity for DOWNGRADED/UPGRADED findings
    - Replace fixes where critic provided corrections
    - Log stats: X confirmed, Y downgraded, Z removed, W upgraded
-5. **Claude Code / Codex:** Mark task completed via TaskUpdate
+5. **Claude Code / Codex:** Mark task(s) completed via TaskUpdate
 
 Write validation stage findings to `{REPORTS_DIR}/validation.md` using `{GROUP_REPORT_TEMPLATE}`:
 - `{GROUP_NAME}` → "Validation: Finding Validation (Critic Review)"
@@ -456,6 +605,8 @@ Write validation stage findings to `{REPORTS_DIR}/validation.md` using `{GROUP_R
 **If scope is "Focused":** Skip the validation stage — present findings directly after exploit development. **STOP — do not continue to report writing. Wait for user follow-up.**
 
 ### Step 8: REPORTING STAGE — Phase 8 (final report, needs everything)
+
+> **Dispatch as stage-orchestrator Task.** After it returns, update `{CHECKPOINT}` (reporting → `completed`).
 
 ```
 TaskCreate: subject="Reporting: Final report", activeForm="Writing final report",
@@ -474,6 +625,8 @@ Verify expected output: confirm `{FINAL_REPORT}` was written.
 **Claude Code / Codex:** Mark task completed via TaskUpdate.
 
 ### Step 8.5: Phase 9 — Fix Plan Generation
+
+> **Dispatch as stage-orchestrator Task.** After it returns, update `{CHECKPOINT}` (remediation → `completed`).
 
 ```
 TaskCreate: subject="Remediation: Fix plan generation", activeForm="Generating fix plan",
@@ -526,16 +679,36 @@ Spawn the fix-planner agent to create an implementation plan from the final repo
 
 After each stage:
 1. Confirm all Task calls for the stage have returned. **Claude Code / Codex:** Verify all stage tasks show status: completed via TaskList.
-2. Verify expected output: Glob `{FINDINGS_DIR}/` to confirm atomic finding files were written
-3. Collect LOD-0 summary tables from all agents in the stage
-4. Deduplicate: if two agents wrote findings for the same vulnerability, keep the more detailed LOD-2 file and delete the other. Update LOD-0 tables accordingly
-4. Build/update `{FINDINGS_INDEX}`:
+2. **Handle PARTIAL returns** (see below)
+3. Verify expected output: Glob `{FINDINGS_DIR}/` to confirm atomic finding files were written
+4. Collect LOD-0 summary tables from all agents in the stage (including continuation agents)
+5. Deduplicate: if two agents wrote findings for the same vulnerability, keep the more detailed LOD-2 file and delete the other. Update LOD-0 tables accordingly
+6. Build/update `{FINDINGS_INDEX}`:
    - **LOD-0 section**: Concatenated LOD-0 tables from all stages so far
    - **LOD-1 section**: For each finding, read its LOD-2 file and extract the LOD-1 brief (first 5 lines: ID, title, severity, CVSS, CWE, ATT&CK, file:line, one-paragraph)
-5. Enrich: add cross-references between related findings in the index
-6. Prepare `{PRIOR_FINDINGS_SUMMARY}` for next stage: the LOD-0 table only, plus `{FINDINGS_DIR}` path for selective reading
-7. Collect incidental findings (IX-prefixed) from agent return messages
-8. Write the stage report using `{GROUP_REPORT_TEMPLATE}`
+7. Enrich: add cross-references between related findings in the index
+8. Prepare `{PRIOR_FINDINGS_SUMMARY}` for next stage: the LOD-0 table only, plus `{FINDINGS_DIR}` path for selective reading
+9. Collect incidental findings (IX-prefixed) from agent return messages
+10. Write the stage report using `{GROUP_REPORT_TEMPLATE}`
+
+### PARTIAL Return Handling
+
+After collecting agent returns for a stage, check each return for `(PARTIAL)` status:
+
+1. **Detect:** If an agent's return contains `**Status:** PARTIAL`, extract:
+   - The LOD-0 summary (findings already written to disk)
+   - The `**Remaining targets:**` list
+   - The last finding ID used (to set the continuation's starting offset)
+2. **Spawn continuation:** Create a new Task for the same agent with:
+   - The same prompt template
+   - A `TARGET SUBSET` section containing only the remaining targets
+   - `{PRIOR_FINDINGS_SUMMARY}` updated to include the partial agent's LOD-0 (so the continuation avoids duplicate analysis)
+   - Finding ID offset set to continue from where the partial agent stopped
+   - Description: `"{agent-id}-continuation-{N}"`
+3. **Repeat:** If the continuation also returns PARTIAL, spawn another continuation. Continue until a non-PARTIAL return is received.
+4. **Merge:** Combine LOD-0 summaries from the original agent and all continuations. All LOD-2 files are already on disk.
+
+PARTIAL handling runs **before** deduplication and index building, so all findings (from original + continuations) are consolidated together.
 
 ### Known Overlap Areas
 
@@ -567,8 +740,8 @@ PREPARATION (batch all reads in one message):
 4. Collect plugin sections (see Step 3.5)
 
 TASK CREATION (Claude Code / Codex only — skip on Cursor):
-5. For each agent, create a task via TaskCreate:
-   - subject: "{StageName}: {agent description}"
+5. For each agent (or chunk), create a task via TaskCreate:
+   - subject: "{StageName}: {agent description}" (add "batch N/M" if chunked)
    - activeForm: "{present participle of agent action}"
    - description: Constructed prompt with ALL placeholders replaced
 
@@ -583,13 +756,30 @@ PROMPT CONSTRUCTION (for each agent):
    - {AGENT_NAME} → agent's display name
    - Append the agent-common.md output instructions to the end of the prompt
 
+CHUNKING (if partition data exists for this agent):
+6b. For each chunk/batch:
+   - Copy the base prompt from step 6
+   - Append a TARGET SUBSET section with the chunk's assigned target rows (copied
+     from the relevant recon step file). Format:
+
+     ## TARGET SUBSET (Batch N of M)
+     Analyze ONLY the following targets. Other batches are handled by parallel agents.
+     [pasted subset of recon step file rows for this chunk]
+
+   - Modify the finding ID line: "Finding IDs: Use prefix {PREFIX}-XXX starting
+     from {PREFIX}-{offset}01" (offset = batch_number * 100, e.g., batch 2 → 101)
+   - Name the agent: "{agent-id}-batch-{N}"
+
 SPAWNING:
-7. Spawn each agent via Task tool with full self-contained prompt. Agent writes to disk, returns LOD-0 in response. Batch all into ONE message for maximum parallelism.
+7. Spawn each agent (or chunk) via Task tool with full self-contained prompt. Agent
+   writes to disk, returns LOD-0 in response. Batch all into ONE message for
+   maximum parallelism. Chunked agents spawn as multiple parallel Task calls.
 
 MONITORING:
 8. Each Task call blocks until agent completes. Collect LOD-0 from return value.
-9. Verify expected output was written to disk
-10. **Claude Code / Codex:** Mark each task as completed via TaskUpdate
+9. Handle PARTIAL returns (see "Consolidation Between Stages")
+10. Verify expected output was written to disk
+11. **Claude Code / Codex:** Mark each task as completed via TaskUpdate
 ```
 
 ## Focused Analysis Mode
@@ -620,6 +810,40 @@ If the user selects "variant hunt for [vuln]":
 4. Skip Phases 1, 5, 6, 8
 5. Present variant findings directly
 
+## Checkpoint & Resume
+
+The orchestrator writes `{CHECKPOINT}` after each stage completes. This enables recovery from context exhaustion or interruption.
+
+**Checkpoint writes:**
+- After Step 1: initial checkpoint (all stages `pending`)
+- After Step 2 (recon): `recon → completed`
+- After Step 3.6 (config): record skipped agents, plugins, partitions, flows
+- After each subsequent stage: `{stage} → completed` + finding count
+
+**Resuming a run:**
+
+If the orchestrator is interrupted (context exhaustion, user abort, error), a new session can resume:
+
+1. Read `{CHECKPOINT}` from the specified run directory
+2. Skip all stages marked `completed` — their data is already on disk
+3. Resume from the first stage marked `pending` or `in-progress`
+4. Read configuration (skipped agents, plugins, partitions) from the checkpoint
+5. Continue the normal stage dispatch flow
+
+The `/security-analyst:resume {run-dir}` pattern:
+```
+1. Read {run-dir}/checkpoint.md
+2. Verify run directory structure is intact (recon/, findings/, reports/)
+3. Identify the first non-completed stage
+4. If recon is completed but Step 3 config is missing: re-run Step 3 (analysis + partitioning + plugins)
+5. Dispatch remaining stages normally
+```
+
+**In-progress recovery:** If a stage is marked `in-progress` (the orchestrator died mid-stage), check for partial output:
+- If the stage report exists: mark `completed` and proceed
+- If finding files exist but no stage report: re-run consolidation only (read LOD-0 from finding files, build index, write report)
+- If no output exists: re-run the entire stage
+
 ## Important Notes
 
 1. **All agents are general-purpose** — they need Bash (for git log, git diff, npm audit), Read, Grep, Glob for code analysis. Explore agents are read-only and cannot run Bash.
@@ -629,3 +853,7 @@ If the user selects "variant hunt for [vuln]":
 5. **Stage discipline** — never start a stage before the previous stage completes. Later stages depend on earlier findings.
 6. **Task tool blocks** — each Task call blocks until the agent completes. No polling or messaging needed.
 7. **Incidental findings** — All agents report security issues outside their focus area with IX- prefix. The orchestrator collects these between stages and includes them in the catalog. Incidentals don't block stages.
+8. **Large codebase handling** — Step 3.2 counts targets and pre-splits work into chunks when thresholds are exceeded. The PARTIAL return protocol provides a safety valve for any agent. Both mechanisms are transparent to the rest of the pipeline — chunked/partial results merge seamlessly during consolidation.
+9. **Targeted reads** — All agents are instructed to read targeted line ranges (~60 lines around the reference point) instead of whole files. This is enforced by `agent-common.md` and prevents large source files from consuming excessive context.
+10. **Stage dispatching** — Each stage runs as its own stage-orchestrator Task with a fresh context window. The top-level orchestrator stays thin (~20-30K tokens) by dispatching stages and collecting compact summaries. See "Stage-Based Dispatching".
+11. **Checkpoint & resume** — The checkpoint file (`{RUN_DIR}/checkpoint.md`) is updated after each stage. If the orchestrator is interrupted, a new session can resume from the checkpoint without re-running completed stages.

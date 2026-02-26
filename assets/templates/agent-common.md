@@ -33,6 +33,46 @@ When you are done with all analysis, return ONLY the following to the orchestrat
 
 Do NOT send full finding details in your return message. They are on disk.
 
+## Target Subsetting (Pre-Chunked Agents)
+
+The orchestrator may assign you a **subset** of targets when the full target list exceeds chunking thresholds. If your prompt includes a `TARGET SUBSET` section, analyze ONLY those items — other chunks are handled by parallel instances of the same agent.
+
+When pre-chunked, your finding IDs start at the offset specified in your prompt (e.g., `HTTP-101` for batch 2).
+
+## PARTIAL Return Protocol
+
+If you are working through a large list of targets and risk exhausting your context window, **stop early and return with PARTIAL status** rather than producing incomplete or degraded analysis. Write all findings discovered so far to disk, then return:
+
+```
+## Agent: {AGENT_NAME} (PARTIAL)
+
+**Status:** PARTIAL — context budget reached
+**Processed:** [count processed] / [total count]
+**Remaining targets:**
+- [target identifier] — file:line
+- [target identifier] — file:line
+- ...
+
+### LOD-0 Summary
+
+| ID          | Severity | Summary        |
+| ----------- | -------- | -------------- |
+| ...         | ...      | ...            |
+
+### Incidental Findings
+
+[if any]
+```
+
+The orchestrator will spawn a **continuation agent** for the remaining targets, with findings from your partial run included as prior context. The continuation inherits your finding ID sequence (e.g., if you stopped at HTTP-012, the continuation starts at HTTP-013).
+
+**When to return PARTIAL:**
+- You have processed ~25 targets (endpoints, integrations, components, or findings) and a comparable or larger number remains
+- You notice tool call responses are being truncated or you are running low on output capacity
+- You are reading very large source files (500+ lines each) and have processed ~15 targets
+
+Err toward returning PARTIAL early rather than risking incomplete analysis at the end. A clean PARTIAL with good findings is far better than a complete run with degraded analysis on the last 30% of targets.
+
 ## Reading Prior Findings
 
 Your `{PRIOR_FINDINGS_SUMMARY}` contains LOD-0 summaries from earlier execution groups. If you need full detail on a specific finding:
@@ -49,6 +89,61 @@ While performing your primary analysis, you may discover security issues OUTSIDE
 - Use abbreviated format (severity, file:line, one-paragraph description, ATT&CK technique if obvious)
 - Do NOT write atomic files for incidentals — include them in your return message only
 - Do NOT let incidental findings distract from your primary analysis
+
+## File Exclusions
+
+When searching the codebase, **only search project source files** — never dependency, generated, or build output. A single unscoped Grep across `node_modules/` can waste thousands of tokens on irrelevant code.
+
+### Primary mechanism: respect .gitignore
+
+Use `git ls-files` to enumerate tracked source files. Everything in `.gitignore` (dependencies, build output, caches, IDE files, logs) is excluded automatically.
+
+```bash
+# List all tracked source files
+git ls-files
+
+# List tracked files matching a pattern
+git ls-files '*.ts' '*.js'
+
+# List tracked files in a specific directory
+git ls-files 'src/'
+```
+
+When you need to search content, the **Grep tool respects `.gitignore` by default** (it uses ripgrep). Searches via the Grep tool automatically skip `node_modules/`, `dist/`, `.git/`, and anything else the project gitignores. Prefer Grep over `git grep` or shell grep for this reason.
+
+### Additional exclusions (may not be in .gitignore)
+
+Some directories are tracked but still wasteful to search broadly:
+
+- `*.min.js`, `*.min.css` — minified files (unreadable, no security value)
+- `*.map` — source maps
+- `*.snap` — test snapshots
+- `**/fixtures/`, `**/testdata/` — test data (read only when tracing a specific code path)
+- `*.generated.*`, `*.pb.go`, `*_pb2.py` — generated code (read only if referenced by source)
+- `*.lock`, `package-lock.json`, `yarn.lock` — lockfiles (read directly for dependency analysis, not via broad search)
+
+### Scoping Grep and Glob searches
+
+**Grep:** Use the `path` parameter to restrict to source directories (e.g., `path: "src/"`) or the `glob` parameter for file types (e.g., `glob: "*.{ts,js}"`). Both are more efficient than searching the project root.
+
+**Glob:** Use specific directory prefixes from recon step files (e.g., `src/**/*.ts`) rather than broad root patterns (e.g., `**/*.ts`).
+
+**Shell grep:** If you must use shell-based grep, scope it: `git ls-files '*.ts' | xargs grep -l 'pattern'` or `rg 'pattern' src/`.
+
+### Exception
+
+The `dependency-audit` and `config-infrastructure` agents may intentionally read `node_modules/` package metadata, lockfiles, or config files in build output. These are targeted reads of specific known files, not broad searches.
+
+## Targeted Reading
+
+When reading source files referenced in recon step files, use **targeted line ranges** instead of reading entire files:
+
+1. Use the `file:line` references from recon step files as your anchor point
+2. Read ~60 lines centered on the target: 30 lines before and 30 lines after the referenced line number (use the Read tool's `offset` and `limit` parameters)
+3. If you need more context (e.g., to find the end of a function or trace an import), expand incrementally in 30-line steps — do not read the entire file
+4. **Exception:** files under ~100 lines — read the whole file
+
+This prevents large source files (1000+ lines) from consuming excessive context. A 2000-line file read in full uses ~20x more context than the ~100-line function body you actually need.
 
 ## Reading Recon Data
 

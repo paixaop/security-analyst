@@ -21,7 +21,7 @@ You are following data through the system like a dye tracing water through pipes
 
 ### For EACH critical data flow from the recon step files:
 
-Trace the flow step by step. At each step, read the actual source code and document:
+Trace the flow step by step. At each step, read the source code using targeted line ranges (~60 lines centered on the relevant function/handler). Expand incrementally if needed to follow the data through a transformation, but do not read entire files. Document:
 
 | Step | File:Line | Input | Transformation | Output | Sanitization | Trust Level | Gap? |
 |------|-----------|-------|----------------|--------|-------------|-------------|------|

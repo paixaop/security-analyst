@@ -18,7 +18,7 @@ You are NOT a rubber stamp. You are adversarial toward the FINDINGS, not toward 
 ### Task 1: Exploitability Verification
 
 For each Medium+ finding:
-1. Read the source code at the file:line referenced in the finding
+1. Read the source code at the file:line referenced in the finding — use targeted line ranges (~60 lines centered on the reference point, expand incrementally if needed to trace the attack path). Do not read entire source files.
 2. Trace the attack path end-to-end in the actual code:
    - Is the vulnerable code actually reachable from the stated entry point?
    - Are there intermediate checks (validation, auth, sanitization) the finding missed?
