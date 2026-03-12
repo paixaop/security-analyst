@@ -445,6 +445,9 @@ TaskCreate: subject="Surface: WebSocket security", activeForm="Analyzing WebSock
 
 TaskCreate: subject="Surface: File upload security", activeForm="Analyzing file uploads",
   description="[file-upload-security prompt]" (skip if no file uploads in recon)
+
+TaskCreate: subject="Surface: Backdoor detection", activeForm="Hunting for backdoors",
+  description="[backdoor-detection prompt]"
 ```
 
 Delete tasks for skipped agents (status: deleted).
@@ -472,6 +475,9 @@ Delete tasks for skipped agents (status: deleted).
 - `config-infra` — Read `{PROMPTS_DIR}/config-infrastructure.md`, spawn agent
 - `cicd-pipeline` — Read `{PROMPTS_DIR}/cicd-pipeline.md`, spawn agent (skip if no CI/CD pipelines)
 - `container-security` — Read `{PROMPTS_DIR}/container-security.md`, spawn agent (skip if no containers)
+
+**Phase 7 agent (backdoor detection):**
+- `backdoor-detection` — Read `{PROMPTS_DIR}/backdoor-detection.md`, spawn agent
 
 **Spawn surface stage agents:**
 

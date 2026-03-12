@@ -28,7 +28,7 @@ security-analyst/
 │   │   ├── privacy.md                   # Privacy assessment entry point
 │   │   ├── update-knowledge.md          # Knowledge base refresh
 │   │   └── security-analysis.md         # Plan-level security analysis
-│   ├── prompts/                         # Agent prompt templates (26 files)
+│   ├── prompts/                         # Agent prompt templates (27 files)
 │   │   ├── knowledge-router.md          # Post-recon: knowledge base routing
 │   │   ├── recon-agent.md               # Phase 0: reconnaissance
 │   │   ├── attack-surface-http.md        # Phase 1: HTTP entry points

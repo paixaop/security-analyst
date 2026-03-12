@@ -127,3 +127,4 @@ Examples:
 - `INJ-003` — Injection variant, finding 3
 - `RACE-001` — Race condition, finding 1
 - `CFG-002` — Configuration, finding 2
+- `BDOOR-001` — Backdoor detection, finding 1

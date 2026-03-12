@@ -94,6 +94,7 @@ Runs once after recon (after Step 3 skip decisions). Produces per-agent `## {age
 | `config-infra` | `config-infrastructure.md` | `CFG` | Always |
 | `cicd-pipeline` | `cicd-pipeline.md` | `CICD` | Has CI/CD |
 | `container-security` | `container-security.md` | `CTR` | Has containers |
+| `backdoor-detection` | `backdoor-detection.md` | `BDOOR` | Always |
 
 ### Logic Stage
 
@@ -146,7 +147,7 @@ recon → surface → logic → tracing → exploits → validation → reportin
 | Stage | Depends On | Agents | Report |
 |-------|------------|--------|--------|
 | recon | — | 14 | `recon/index.md` |
-| surface | recon | ≤16 | `reports/surface.md` |
+| surface | recon | ≤17 | `reports/surface.md` |
 | sbom | surface | 0 | `reports/sbom.md` |
 | logic | surface | 4 | `reports/logic.md` |
 | tracing | surface+logic | ≤4 | `reports/tracing.md` |
