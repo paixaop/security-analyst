@@ -1,6 +1,6 @@
 ---
 name: security-analyst
-description: "Comprehensive security analysis suite that identifies vulnerabilities across HTTP, auth, integrations, dependencies, infrastructure, and business logic through a multi-phase agent pipeline with exploit PoCs and remediation plans. Use when the user wants a security audit, penetration test, threat model, vulnerability hunt, security fix plan, SBOM, compliance mapping, privacy assessment, or security posture comparison between runs."
+description: "Comprehensive security analysis suite that identifies vulnerabilities across HTTP, auth, integrations, dependencies, infrastructure, backdoors, and business logic through a multi-phase agent pipeline with exploit PoCs and remediation plans. Use when the user wants a security audit, penetration test, threat model, vulnerability hunt, backdoor detection, security fix plan, SBOM, compliance mapping, privacy assessment, or security posture comparison between runs."
 license: AGPL-3.0
 compatibility: "Requires Claude Code, Cursor, or Codex with Task (subagent) support. Requires git. Benefits from npm audit, pip-audit, and govulncheck for dependency scanning."
 metadata:
@@ -66,12 +66,13 @@ Knowledge: KnowledgeRouter (1 agent, after recon)
   └─ Selects OWASP/CWE knowledge files matching the project's stack
   └─ Output injected as grounding context into every downstream agent
 
-Surface: Attack Surface + Git History + Dependencies + Config (up to 16 agents, batch-spawned in parallel)
+Surface: Attack Surface + Git History + Dependencies + Config (up to 17 agents, batch-spawned in parallel)
   ├─ HTTP entry points, authz rules, integrations, frontend
   ├─ LLM/AI security (OWASP Top 10 for LLM Applications)
   ├─ API schema validation (OpenAPI, GraphQL, gRPC)
   ├─ WebSocket / SSE real-time security
   ├─ File upload security
+  ├─ Backdoor detection (hidden endpoints, obfuscated code, supply chain backdoors, data exfiltration)
   ├─ Injection/auth/SSRF/data-exposure variant hunting via git history
   ├─ Dependency audit (npm audit, supply chain)
   ├─ Infrastructure config, secrets, KMS, IAM
