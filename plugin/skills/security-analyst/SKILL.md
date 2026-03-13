@@ -1,6 +1,6 @@
 ---
 name: security-analyst
-description: "Comprehensive security analysis suite that identifies vulnerabilities across HTTP, auth, integrations, dependencies, infrastructure, backdoors, and business logic through a multi-phase agent pipeline with exploit PoCs and remediation plans. Use when the user wants a security audit, penetration test, threat model, vulnerability hunt, backdoor detection, security fix plan, SBOM, compliance mapping, privacy assessment, or security posture comparison between runs."
+description: "Comprehensive security analysis suite that identifies vulnerabilities across HTTP, auth, integrations, dependencies, infrastructure, backdoors, cryptography, deserialization, OAuth/SSO, rate limiting, logging, caching, memory safety, serverless, third-party scripts, error handling, and business logic through a multi-phase agent pipeline with exploit PoCs and remediation plans. Use when the user wants a security audit, penetration test, threat model, vulnerability hunt, backdoor detection, cryptography audit, deserialization review, OAuth/SSO assessment, rate limiting analysis, logging audit, cache security review, memory safety check, serverless security review, third-party script audit, error handling review, security fix plan, SBOM, compliance mapping, privacy assessment, or security posture comparison between runs."
 license: AGPL-3.0
 compatibility: "Requires Claude Code, Cursor, or Codex with Task (subagent) support. Requires git. Benefits from npm audit, pip-audit, and govulncheck for dependency scanning."
 metadata:
@@ -35,7 +35,7 @@ Comprehensive security analysis suite that identifies vulnerabilities, assesses 
 | Command | Purpose | Agents | Output |
 |---------|---------|--------|--------|
 | `/security-analyst` | Interactive — choose scope and output mode | Varies | Varies |
-| `/security-analyst:full` | All 9 phases, all attack surfaces | 23+ | Full run directory |
+| `/security-analyst:full` | All 9 phases, all attack surfaces | 33+ | Full run directory |
 | `/security-analyst:focused [component]` | Target a specific area (e.g., authentication, data pipeline) | 3-6 | Inline findings |
 | `/security-analyst:recon` | Phase 0 only — codebase security map | 14 (parallel) | Recon index + step files |
 | `/security-analyst:threat-model` | Recon + STRIDE analysis + attack trees | 1+ | Threat model doc |
@@ -66,13 +66,23 @@ Knowledge: KnowledgeRouter (1 agent, after recon)
   └─ Selects OWASP/CWE knowledge files matching the project's stack
   └─ Output injected as grounding context into every downstream agent
 
-Surface: Attack Surface + Git History + Dependencies + Config (up to 17 agents, batch-spawned in parallel)
+Surface: Attack Surface + Git History + Dependencies + Config (up to 27 agents, batch-spawned in parallel)
   ├─ HTTP entry points, authz rules, integrations, frontend
   ├─ LLM/AI security (OWASP Top 10 for LLM Applications)
   ├─ API schema validation (OpenAPI, GraphQL, gRPC)
   ├─ WebSocket / SSE real-time security
   ├─ File upload security
   ├─ Backdoor detection (hidden endpoints, obfuscated code, supply chain backdoors, data exfiltration)
+  ├─ Cryptography audit (weak algorithms, key management, TLS, JWT, password hashing)
+  ├─ Deserialization security (pickle, ObjectInputStream, prototype pollution, XXE)
+  ├─ OAuth/OIDC/SSO security (redirect URI, state/PKCE, token handling, SAML)
+  ├─ Rate limiting & abuse prevention (brute force, enumeration, API abuse, CAPTCHA)
+  ├─ Logging & monitoring (sensitive data in logs, missing audit trails, log injection)
+  ├─ Caching security (cache poisoning, sensitive data leakage, CDN abuse)
+  ├─ Memory safety (buffer overflows, use-after-free, unsafe code, native addons)
+  ├─ Serverless security (IAM roles, event injection, Lambda/Cloud Functions)
+  ├─ Third-party script security (CSP, SRI, tag managers, external scripts)
+  ├─ Error handling & info disclosure (stack traces, debug endpoints, verbose errors)
   ├─ Injection/auth/SSRF/data-exposure variant hunting via git history
   ├─ Dependency audit (npm audit, supply chain)
   ├─ Infrastructure config, secrets, KMS, IAM
@@ -138,7 +148,7 @@ The orchestrator writes `checkpoint.md` after each stage completes. If a run is 
 
 ### Full Analysis
 
-Runs all 9 phases with no prompts. Most thorough — spawns up to 28+ agents across 6 execution groups. Expect significant processing time.
+Runs all 9 phases with no prompts. Most thorough — spawns up to 38+ agents across 6 execution groups. Expect significant processing time.
 
 ```
 /security-analyst:full
@@ -274,7 +284,7 @@ User says: "Run a full security audit on this project"
 
 Actions:
 1. Spawns 14 recon agents in parallel to map the codebase
-2. Spawns up to 16 attack surface, git history, dependency, and config agents
+2. Spawns up to 27 attack surface, git history, dependency, config, crypto, deserialization, OAuth, rate limiting, logging, caching, memory safety, serverless, third-party scripts, and error handling agents
 3. Runs business logic, data flow tracing, exploit development, and critic validation
 4. Assembles final report with remediation roadmap
 

@@ -42,7 +42,7 @@ All platforms use the same agents-only flow. No TeamCreate, TeamDelete, or SendM
 
 ## Stage-Based Dispatching
 
-To prevent the orchestrator from exhausting its own context window during a full run (28+ agents across 8 stages), each stage runs inside its own **stage-orchestrator Task** with a fresh context window. The top-level orchestrator becomes a thin dispatcher:
+To prevent the orchestrator from exhausting its own context window during a full run (38+ agents across 8 stages), each stage runs inside its own **stage-orchestrator Task** with a fresh context window. The top-level orchestrator becomes a thin dispatcher:
 
 1. Creates the run directory and initial checkpoint
 2. Dispatches each stage as a Task (subagent_type: `generalPurpose`)
@@ -448,6 +448,36 @@ TaskCreate: subject="Surface: File upload security", activeForm="Analyzing file 
 
 TaskCreate: subject="Surface: Backdoor detection", activeForm="Hunting for backdoors",
   description="[backdoor-detection prompt]"
+
+TaskCreate: subject="Surface: Cryptography audit", activeForm="Auditing cryptographic usage",
+  description="[cryptography-audit prompt]"
+
+TaskCreate: subject="Surface: Deserialization security", activeForm="Analyzing deserialization sinks",
+  description="[deserialization-security prompt]"
+
+TaskCreate: subject="Surface: OAuth/OIDC/SSO security", activeForm="Analyzing OAuth/SSO flows",
+  description="[oauth-sso-security prompt]" (skip if no OAuth/OIDC/SSO in recon)
+
+TaskCreate: subject="Surface: Rate limiting & abuse", activeForm="Analyzing rate limiting",
+  description="[rate-limiting-abuse prompt]"
+
+TaskCreate: subject="Surface: Logging & monitoring", activeForm="Auditing logging & monitoring",
+  description="[logging-monitoring prompt]"
+
+TaskCreate: subject="Surface: Caching security", activeForm="Analyzing cache security",
+  description="[caching-security prompt]" (skip if no caching/CDN in recon)
+
+TaskCreate: subject="Surface: Memory safety", activeForm="Analyzing memory safety",
+  description="[memory-safety prompt]" (skip if no native code in recon)
+
+TaskCreate: subject="Surface: Serverless security", activeForm="Analyzing serverless security",
+  description="[serverless-security prompt]" (skip if no serverless in recon)
+
+TaskCreate: subject="Surface: Third-party scripts", activeForm="Analyzing third-party scripts",
+  description="[third-party-scripts prompt]" (skip if no frontend in recon)
+
+TaskCreate: subject="Surface: Error handling security", activeForm="Analyzing error handling",
+  description="[error-handling-security prompt]"
 ```
 
 Delete tasks for skipped agents (status: deleted).
@@ -478,6 +508,18 @@ Delete tasks for skipped agents (status: deleted).
 
 **Phase 7 agent (backdoor detection):**
 - `backdoor-detection` — Read `{PROMPTS_DIR}/backdoor-detection.md`, spawn agent
+
+**Phase 8 agents (cross-cutting security):**
+- `cryptography-audit` — Read `{PROMPTS_DIR}/cryptography-audit.md`, spawn agent
+- `deserialization-security` — Read `{PROMPTS_DIR}/deserialization-security.md`, spawn agent
+- `oauth-sso-security` — Read `{PROMPTS_DIR}/oauth-sso-security.md`, spawn agent (skip if no OAuth/OIDC/SSO)
+- `rate-limiting-abuse` — Read `{PROMPTS_DIR}/rate-limiting-abuse.md`, spawn agent
+- `logging-monitoring` — Read `{PROMPTS_DIR}/logging-monitoring.md`, spawn agent
+- `caching-security` — Read `{PROMPTS_DIR}/caching-security.md`, spawn agent (skip if no caching/CDN)
+- `memory-safety` — Read `{PROMPTS_DIR}/memory-safety.md`, spawn agent (skip if no native code)
+- `serverless-security` — Read `{PROMPTS_DIR}/serverless-security.md`, spawn agent (skip if no serverless)
+- `third-party-scripts` — Read `{PROMPTS_DIR}/third-party-scripts.md`, spawn agent (skip if no frontend)
+- `error-handling-security` — Read `{PROMPTS_DIR}/error-handling-security.md`, spawn agent
 
 **Spawn surface stage agents:**
 
