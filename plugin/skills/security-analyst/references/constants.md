@@ -95,6 +95,16 @@ Runs once after recon (after Step 3 skip decisions). Produces per-agent `## {age
 | `cicd-pipeline` | `cicd-pipeline.md` | `CICD` | Has CI/CD |
 | `container-security` | `container-security.md` | `CTR` | Has containers |
 | `backdoor-detection` | `backdoor-detection.md` | `BDOOR` | Always |
+| `cryptography-audit` | `cryptography-audit.md` | `CRYPTO` | Always |
+| `deserialization-security` | `deserialization-security.md` | `DESER` | Always |
+| `oauth-sso-security` | `oauth-sso-security.md` | `OAUTH` | Has OAuth/OIDC/SSO |
+| `rate-limiting-abuse` | `rate-limiting-abuse.md` | `RATE` | Always |
+| `logging-monitoring` | `logging-monitoring.md` | `LOG` | Always |
+| `caching-security` | `caching-security.md` | `CACHE` | Has caching/CDN |
+| `memory-safety` | `memory-safety.md` | `MEM` | Has native code |
+| `serverless-security` | `serverless-security.md` | `SLESS` | Has serverless |
+| `third-party-scripts` | `third-party-scripts.md` | `3P` | Has frontend |
+| `error-handling-security` | `error-handling-security.md` | `ERR` | Always |
 
 ### Logic Stage
 
@@ -147,7 +157,7 @@ recon → surface → logic → tracing → exploits → validation → reportin
 | Stage | Depends On | Agents | Report |
 |-------|------------|--------|--------|
 | recon | — | 14 | `recon/index.md` |
-| surface | recon | ≤17 | `reports/surface.md` |
+| surface | recon | ≤27 | `reports/surface.md` |
 | sbom | surface | 0 | `reports/sbom.md` |
 | logic | surface | 4 | `reports/logic.md` |
 | tracing | surface+logic | ≤4 | `reports/tracing.md` |
