@@ -104,3 +104,4 @@ When multiple plugins inject sections for the same agent (e.g., both Next.js and
 | `graphql.md` | GraphQL (Apollo, Yoga, etc.) | Recon, HTTP, AuthZ, Config, Data Flow, DoS |
 | `docker-kubernetes.md` | Docker / Kubernetes | Recon, Config, Dependency Audit |
 | `aws-gcp-azure.md` | AWS / GCP / Azure Cloud | Recon, HTTP, Config, Data Flow, Dependency Audit |
+| `c-cpp.md` | C / C++ (GCC / Clang / MSVC) | Recon, Memory Safety, HTTP, AuthZ, Config, Integrations, Race Conditions, DoS, AuthZ Escalation, Data Flow, Dependency Audit, Frontend, Pipeline, Injection History, Data Exposure History |
